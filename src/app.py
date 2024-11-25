@@ -4,7 +4,7 @@ import boto3
 from flask import Flask
 from src.config import Config
 from src.controllers.jorunal_controller import journal_bp  # Correct import
-
+from src.services.journal_service import JournalService
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)

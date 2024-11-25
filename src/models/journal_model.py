@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from src.database import get_table
-
+import boto3
 class JournalEntryModel:
     TABLE_NAME = "journals"
 
