@@ -3,8 +3,7 @@ import os
 import boto3
 from flask import Flask
 from src.config import Config
-from src.controllers.jorunal_controller import quiz_bp
-
+from src.controllers.jorunal_controller import journal_bp  # Correct import
 
 def create_app():
     app = Flask(__name__)
@@ -25,7 +24,7 @@ def create_app():
         sys.exit(1)  # Exit if unable to connect to DynamoDB
 
     # Register blueprints
-    app.register_blueprint(quiz_bp)
+    app.register_blueprint(journal_bp)  # Register journal blueprint
 
     return app
 

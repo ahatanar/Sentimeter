@@ -1,6 +1,6 @@
 from datetime import datetime
 from src.models.journal_model import JournalEntryModel
-from src.services.sentiment_analysis import analyze_sentiment
+from src.services.analyze_sentiment import analyze_sentiment
 
 
 class JournalService:
