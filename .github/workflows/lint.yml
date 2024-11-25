@@ -1,0 +1,22 @@
+name: Python Linting
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+
+    - name: Install Flake8
+      run: pip install flake8
+
+    - name: Run Flake8
+      run: flake8 src/controllers/quiz_controller.py src/models/quiz_model.py src/services/quiz_service.py tests/test_quiz.py
+
+
