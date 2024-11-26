@@ -16,7 +16,6 @@ def create_journal_entry():
     user_id = get_jwt_identity()  # Extract user ID from JWT
     data = request.json
 
-    # Validate input
     if not data or "entry" not in data:
         return jsonify({"error": "Entry content is required"}), 400
 
