@@ -10,7 +10,7 @@ class JournalService:
         Create and save a new journal entry.
         :param user_id: ID of the user creating the entry.
         :param entry: Text of the journal entry.
-        :return: Entry ID of the created journal entry.
+        :return: Dictionary with saved entry details.
         """
         # Analyze sentiment
         sentiment, confidence = analyze_sentiment(entry)
@@ -23,10 +23,16 @@ class JournalService:
             emotions=None,  # Placeholder for future emotion data
             timestamp=datetime.now().isoformat()
         )
-        journal_entry.save()
+        saved_entry = journal_entry.save()  # Returns the instance
 
-        return journal_entry.entry_id
-
+        # Return the saved entry details (or full instance for flexibility)
+        return {
+            "entry_id": saved_entry.entry_id,
+            "user_id": saved_entry.user_id,
+            "timestamp": saved_entry.timestamp,
+            "sentiment": saved_entry.sentiment,
+            "entry": saved_entry.entry,
+        }
     @staticmethod
     def get_all_journal_entries(user_id):
         """
