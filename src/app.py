@@ -24,14 +24,13 @@ def create_app():
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name=os.getenv("AWS_REGION"),
         )
-        app.dynamodb = dynamodb  # Add DynamoDB to Flask app context
+        app.dynamodb = dynamodb  
         print("DynamoDB connected successfully.")
     except Exception as e:
         print("Error connecting to DynamoDB:", e)
-        sys.exit(1)  # Exit if unable to connect to DynamoDB
-
-    # Register blueprints
-    app.register_blueprint(journal_bp)  # Register journal blueprint
+        sys.exit(1) 
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(journal_bp)  
 
     return app
 

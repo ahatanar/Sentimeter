@@ -2,10 +2,8 @@ import boto3
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize DynamoDB
 def get_dynamodb_resource():
     return boto3.resource(
         "dynamodb",
@@ -14,7 +12,6 @@ def get_dynamodb_resource():
         region_name=os.getenv("AWS_REGION"),
     )
 
-# Get a specific DynamoDB table
 def get_table(table_name):
     dynamodb = get_dynamodb_resource()
     return dynamodb.Table(table_name)
