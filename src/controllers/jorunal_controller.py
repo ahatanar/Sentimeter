@@ -68,3 +68,38 @@ def delete_journal_entry(entry_id):
         return jsonify({"message": "Journal entry deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@journal_bp.route("/recent", methods=["GET"])
+@jwt_required()
+def get_recent_entries():
+    """
+    Fetch the last 10 journal entries for the logged-in user.
+    """
+    user_id = get_jwt_identity()  # Extract user ID from JWT
+    try:
+        entries = JournalService.get_recent_entries(user_id)
+        return jsonify(entries), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@journal_bp.route("/filter", methods=["GET"])
+@jwt_required()
+def get_entries_by_time():
+    """
+    Fetch journal entries filtered by year and month.
+    Example usage:
+        /api/journals/filter?year=2024&month=11
+    """
+    user_id = get_jwt_identity()  # Extract user ID from JWT
+    year = request.args.get("year")
+    month = request.args.get("month")
+
+    if not year or not month:
+        return jsonify({"error": "Both 'year' and 'month' parameters are required."}), 400
+
+    try:
+        entries = JournalService.get_entries_by_month(user_id, year, month)
+        return jsonify(entries), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

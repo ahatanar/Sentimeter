@@ -1,6 +1,6 @@
 from datetime import datetime
 from src.models.journal_model import JournalEntryModel
-from src.services.analyze_sentiment import analyze_sentiment
+from src.services.text_service import TextAnalysisService
 
 
 class JournalService:
@@ -13,15 +13,16 @@ class JournalService:
         :return: Dictionary with saved entry details.
         """
         # Analyze sentiment
-        sentiment, confidence = analyze_sentiment(entry)
-
+        sentiment, confidence = TextAnalysisService.analyze_sentiment(entry)
+        key_words  = TextAnalysisService.extract_keywords(entry)
         # Create and save the journal entry
         journal_entry = JournalEntryModel(
             user_id=user_id,
             entry=entry,
             sentiment=sentiment,
             emotions=None,  # Placeholder for future emotion data
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            keywords = key_words
         )
         saved_entry = journal_entry.save()  # Returns the instance
 
@@ -60,3 +61,43 @@ class JournalService:
         :return: True if deletion was successful, False otherwise.
         """
         return JournalEntryModel.delete_by_entry_id(entry_id)
+
+    @staticmethod
+    def get_recent_entries(user_id):
+        """
+        Fetch the last 10 journal entries for a user.
+        :param user_id: The user's ID.
+        :return: A list of the 10 most recent journal entries.
+        """
+        return JournalEntryModel.get_recent_entries(user_id)
+
+    @staticmethod
+    def get_entries_by_month(user_id, year, month):
+        """
+        Fetch journal entries for a specific month and year.
+        :param user_id: The user's ID.
+        :param year: Year to filter by.
+        :param month: Month to filter by.
+        :return: A list of journal entries for the specified month and year.
+        """
+        return JournalEntryModel.get_entries_by_month(user_id, year, month)
+
+    @staticmethod
+    def get_dashboard_data(user_id):
+        """
+        Generate heatmap data (entry counts by day) for the dashboard.
+        :param user_id: The user's ID.
+        :return: A dictionary with date counts.
+        """
+        return JournalEntryModel.get_dashboard_data(user_id)
+    
+    @staticmethod
+    def get_entries_by_month(user_id, year, month):
+        """
+        Fetch journal entries for a specific month and year.
+        :param user_id: The user's ID.
+        :param year: Year to filter by (e.g., 2024).
+        :param month: Month to filter by (e.g., 11 for November).
+        :return: A list of journal entries for the specified month and year.
+        """
+        return JournalEntryModel.get_entries_by_month(user_id, year, month)
