@@ -12,27 +12,25 @@ class JournalService:
         :param entry: Text of the journal entry.
         :return: Dictionary with saved entry details.
         """
-        # Analyze sentiment
         sentiment, confidence = TextAnalysisService.analyze_sentiment(entry)
         key_words  = TextAnalysisService.extract_keywords(entry)
-        # Create and save the journal entry
         journal_entry = JournalEntryModel(
             user_id=user_id,
             entry=entry,
             sentiment=sentiment,
-            emotions=None,  # Placeholder for future emotion data
+            emotions=None, 
             timestamp=datetime.now().isoformat(),
             keywords = key_words
         )
-        saved_entry = journal_entry.save()  # Returns the instance
+        saved_entry = journal_entry.save()  
 
-        # Return the saved entry details (or full instance for flexibility)
         return {
             "entry_id": saved_entry.entry_id,
             "user_id": saved_entry.user_id,
             "timestamp": saved_entry.timestamp,
             "sentiment": saved_entry.sentiment,
             "entry": saved_entry.entry,
+
         }
     @staticmethod
     def get_all_journal_entries(user_id):
@@ -101,3 +99,19 @@ class JournalService:
         :return: A list of journal entries for the specified month and year.
         """
         return JournalEntryModel.get_entries_by_month(user_id, year, month)
+    @staticmethod
+    def get_heatmap_data(user_id):
+        """
+        Fetch heatmap data for the last 365 days.
+        :param user_id: The user's ID.
+        :return: A dictionary with dates as keys and entry counts as values.
+        """
+        return JournalEntryModel.get_heatmap_data(user_id)
+    
+    @staticmethod
+    def get_dashboard_sentiments(user_id):
+        return {
+            "last_week": JournalEntryModel.get_last_week_sentiments(user_id),
+            "last_month": JournalEntryModel.get_last_month_sentiments(user_id),
+            "last_year": JournalEntryModel.get_last_year_sentiments(user_id)
+        }

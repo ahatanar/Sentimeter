@@ -103,3 +103,31 @@ def get_entries_by_time():
         return jsonify(entries), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@journal_bp.route("/heatmap", methods=["GET"])
+@jwt_required()
+def get_heatmap_data():
+    """
+    Fetch heatmap data for the last 365 days for the logged-in user.
+    """
+    user_id = get_jwt_identity()  # Extract user ID from JWT
+    print(f"[DEBUG] Controller received user_id: {user_id}")
+    try:
+        heatmap_data = JournalService.get_heatmap_data(user_id)
+        print(f"[DEBUG] Heatmap data returned: {heatmap_data}")
+        return jsonify(heatmap_data), 200
+    except Exception as e:
+        print(f"[ERROR] Controller error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+    
+@journal_bp.route("/dashboard/sentiments", methods=["GET"])
+@jwt_required()
+def get_dashboard_sentiments():
+    user_id = get_jwt_identity()
+    try:
+        sentiments = JournalService.get_dashboard_sentiments(user_id)
+        return jsonify(sentiments), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

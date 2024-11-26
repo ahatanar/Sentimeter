@@ -5,6 +5,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from collections import Counter
 from boto3.dynamodb.conditions import Key, Attr
+from datetime import datetime, timedelta
 
 class JournalEntryModel:
     TABLE_NAME = "journals"
@@ -137,13 +138,10 @@ class JournalEntryModel:
             )
             entries = response.get("Items", [])
             
-            # Flatten all keywords from entries into a single list
             all_keywords = [keyword for entry in entries for keyword in entry.get("keywords", [])]
 
-            # Count the frequency of each keyword
             keyword_counts = Counter(all_keywords)
 
-            # Get the top N most common keywords
             top_keywords = keyword_counts.most_common(top_n)
             print(f"[DEBUG] Top {top_n} keywords for user {user_id}: {top_keywords}")
             return top_keywords
@@ -162,8 +160,8 @@ class JournalEntryModel:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.query(
                 KeyConditionExpression=Key("user_id").eq(user_id),
-                ScanIndexForward=False,  # Descending order
-                Limit=10  # Fetch the last 10 entries
+                ScanIndexForward=False, 
+                Limit=10  
             )
             entries = response.get("Items", [])
             print(f"[DEBUG] Retrieved last 10 entries for user {user_id}: {entries}")
@@ -183,7 +181,6 @@ class JournalEntryModel:
         """
         try:
             journals_table = get_table(cls.TABLE_NAME)
-            # Use the prefix of the timestamp (e.g., "2024-11") to filter entries
             prefix = f"{year}-{int(month):02}"
             response = journals_table.scan(
                 FilterExpression=Attr("user_id").eq(user_id) &
@@ -195,3 +192,118 @@ class JournalEntryModel:
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries for {year}-{month}: {e}")
             raise
+    @classmethod
+    def get_heatmap_data(cls, user_id):
+        """
+        Retrieve heatmap data for the last 365 days, grouped by date.
+        :param user_id: The user's ID.
+        :return: A dictionary with dates as keys and entry counts as values.
+        """
+        try:
+            journals_table = get_table(cls.TABLE_NAME)
+
+            today = datetime.now()
+            one_year_ago = today - timedelta(days=365)
+            date_filter = one_year_ago.strftime('%Y-%m-%d')
+
+            response = journals_table.scan(
+                FilterExpression=Key("user_id").eq(user_id) & Attr("timestamp").gte(date_filter)
+            )
+
+            entries = response.get("Items", [])
+            print(f"[DEBUG] Retrieved {len(entries)} entries for user {user_id} in the last 365 days.")
+
+            date_counts = Counter(entry["timestamp"][:10] for entry in entries)  # Extract only the date (YYYY-MM-DD)
+
+            heatmap_data = {}
+            for i in range(365):
+                date = (today - timedelta(days=i)).strftime('%Y-%m-%d')
+                heatmap_data[date] = date_counts.get(date, 0)
+
+            return heatmap_data
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve heatmap data: {e}")
+            raise
+
+
+    @classmethod
+    def get_sentiments_by_date(cls, user_id, start_date, end_date):
+        """
+        Retrieve sentiment data grouped by date within a specific date range.
+        :param user_id: The user's ID.
+        :param start_date: Start date (YYYY-MM-DD).
+        :param end_date: End date (YYYY-MM-DD).
+        :return: A dictionary with dates as keys and sentiment scores as values.
+        """
+        try:
+            journals_table = get_table(cls.TABLE_NAME)
+
+            response = journals_table.scan(
+                FilterExpression=Attr("user_id").eq(user_id) &
+                                Attr("timestamp").between(start_date, end_date)
+            )
+
+            entries = response.get("Items", [])
+            print(f"[DEBUG] Retrieved {len(entries)} entries for user {user_id} between {start_date} and {end_date}")
+
+            sentiments = {}
+            for entry in entries:
+                date = entry["timestamp"][:10]  
+                score = 1 if entry["sentiment"] == "positive" else -1 if entry["sentiment"] == "negative" else 0
+                sentiments.setdefault(date, []).append(score)
+
+            averaged_sentiments = {date: sum(scores) / len(scores) for date, scores in sentiments.items()}
+            return averaged_sentiments
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve sentiments by date: {e}")
+            raise
+
+    @classmethod
+    def get_last_week_sentiments(cls, user_id):
+        """
+        Retrieve sentiment data for the last week, aggregated by day.
+        :param user_id: The user's ID.
+        :return: A dictionary with dates as keys and average sentiment scores as values.
+        """
+        today = datetime.now()
+        last_week = today - timedelta(days=7)
+        sentiments = cls.get_sentiments_by_date(user_id, last_week.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        return {date: score for date, score in sorted(sentiments.items())}
+
+    @classmethod
+    def get_last_month_sentiments(cls, user_id):
+        """
+        Retrieve sentiment data for the last month, aggregated by week.
+        :param user_id: The user's ID.
+        :return: A dictionary with weeks as keys (e.g., "week_46") and average sentiment scores as values.
+        """
+        today = datetime.now()
+        last_month = today - timedelta(days=30)
+        sentiments = cls.get_sentiments_by_date(user_id, last_month.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        from collections import defaultdict
+        weekly_sentiments = defaultdict(list)
+        for date, score in sentiments.items():
+            week = datetime.strptime(date, "%Y-%m-%d").isocalendar()[1]  
+            weekly_sentiments[week].append(score)
+
+        return {f"week_{week}": sum(scores) / len(scores) for week, scores in weekly_sentiments.items()}
+
+    @classmethod
+    def get_last_year_sentiments(cls, user_id):
+        """
+        Retrieve sentiment data for the last year, aggregated by month.
+        :param user_id: The user's ID.
+        :return: A dictionary with months as keys (e.g., "2024-11") and average sentiment scores as values.
+        """
+        today = datetime.now()
+        last_year = today - timedelta(days=365)
+        sentiments = cls.get_sentiments_by_date(user_id, last_year.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        from collections import defaultdict
+        monthly_sentiments = defaultdict(list)
+        for date, score in sentiments.items():
+            month = date[:7]  
+            monthly_sentiments[month].append(score)
+
+        return {month: sum(scores) / len(scores) for month, scores in monthly_sentiments.items()}
