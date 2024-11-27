@@ -5,6 +5,7 @@ from src.models.user_model import UserModel
 from src.database import get_table
 import requests
 import os
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -97,3 +98,74 @@ def callback():
     except Exception as e:
         print(f"Error during callback: {e}")
         return jsonify({"error": "Failed to process callback"}), 500
+    
+@auth_bp.route("/authorize-calendar", methods=["GET"])
+def authorize_calendar():
+    try:
+        # Discover Google's authorization endpoint
+        google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+        authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+
+        # Redirect the user to Google's OAuth screen for calendar access
+        request_uri = client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri=url_for("auth.calendar_callback", _external=True),
+            scope=["https://www.googleapis.com/auth/calendar.events"],
+            access_type="offline"  # Offline access to get a refresh token
+        )
+        return redirect(request_uri)
+    except Exception as e:
+        return jsonify({"error": f"Failed to initiate calendar authorization: {e}"}), 500
+
+@auth_bp.route("/calendar-callback", methods=["GET"])
+def calendar_callback():
+    try:
+        # Get authorization code from Google
+        code = request.args.get("code")
+
+        # Exchange authorization code for tokens
+        google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+        token_endpoint = google_provider_cfg["token_endpoint"]
+        token_url, headers, body = client.prepare_token_request(
+            token_endpoint,
+            authorization_response=request.url,
+            redirect_url=url_for("auth.calendar_callback", _external=True),
+            client_secret=GOOGLE_CLIENT_SECRET,
+        )
+        token_response = requests.post(token_url, headers=headers, data=body)
+        token_response_data = client.parse_request_body_response(token_response.text)
+
+        # Extract access and refresh tokens
+        access_token = token_response_data["access_token"]
+        refresh_token = token_response_data.get("refresh_token")  # Only if offline access is granted
+
+        # Store tokens in JWT (or any other secure method) and return them to the frontend
+        jwt_token = create_access_token(identity={"access_token": access_token})
+        return jsonify({"jwt_token": jwt_token, "message": "Calendar access authorized!"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to process calendar authorization: {e}"}), 500
+    
+
+
+@auth_bp.route("/add-event", methods=["POST"])
+@jwt_required()  # Ensure the request is authenticated
+def add_event():
+    try:
+        # Retrieve access token from the JWT
+        user_identity = get_jwt_identity()
+        access_token = user_identity.get("access_token")
+        if not access_token:
+            return jsonify({"error": "No access token available. Please authorize calendar access."}), 401
+
+        # Prepare event data
+        event_details = request.json
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = requests.post(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            headers=headers,
+            json=event_details,
+        )
+
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": f"Failed to add event: {e}"}), 500

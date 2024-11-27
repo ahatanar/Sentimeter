@@ -20,8 +20,9 @@ def create_journal_entry():
         return jsonify({"error": "Entry content is required"}), 400
 
     try:
-        # Delegate to the JournalService
-        entry_id = JournalService.create_journal_entry(user_id, data["entry"])
+        request_ip = request.remote_addr
+        entry_id = JournalService.create_journal_entry(user_id, data["entry"], request_ip)
+
         return jsonify({"message": "Journal entry created successfully", "entry_id": entry_id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
