@@ -1,8 +1,10 @@
 from transformers import pipeline
 import requests
+import os
 # Initialize pipelines globally for efficiency
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 keyword_pipeline = pipeline("feature-extraction", model="sentence-transformers/all-MiniLM-L6-v2")  # Pre-trained model for keywords
+HUGGING_FACE = os.getenv("HUGGING_FACE")
 
 class TextAnalysisService:
     """
@@ -62,7 +64,7 @@ class TextAnalysisService:
         :return: AI-generated weather description as a string.
         """
         api_url = "https://api-inference.huggingface.co/models/gpt2"
-        headers = {"Authorization": f"Bearer your_huggingface_api_token"} 
+        headers = {"Authorization": f"{HUGGING_FACE}"} 
 
         prompt = (
             f"Provide a descriptive summary of the weather based on the following details:\n"

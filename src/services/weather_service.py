@@ -1,5 +1,7 @@
 import requests
+import os
 
+WEATHER_KEY = os.getenv("WEATHER_KEY")
 class WeatherService:
     @staticmethod
     def get_weather_by_location(location):
@@ -8,7 +10,7 @@ class WeatherService:
         :param location: Dictionary containing city or coordinates.
         :return: Weather details.
         """
-        api_key = "your_openweathermap_api_key"
+        api_key = WEATHER_KEY
         url = f"https://api.openweathermap.org/data/2.5/weather?q={location['city']}&units=metric&appid={api_key}"
         try:
             response = requests.get(url)
