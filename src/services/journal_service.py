@@ -1,17 +1,21 @@
 from datetime import datetime
 from src.models.journal_model import JournalEntryModel
 from src.services.text_service import TextAnalysisService
-
+from src.services.weather_service import WeatherService
 
 class JournalService:
     @staticmethod
-    def create_journal_entry(user_id, entry):
+    def create_journal_entry(user_id, entry,ip_address):
         """
         Create and save a new journal entry.
         :param user_id: ID of the user creating the entry.
         :param entry: Text of the journal entry.
         :return: Dictionary with saved entry details.
         """
+        location = WeatherService.get_location_from_ip(ip_address)
+        weather_data = WeatherService.get_weather_by_location(location)
+        weather_description = TextAnalysisService.generate_weather_description(weather_data)
+        
         sentiment, confidence = TextAnalysisService.analyze_sentiment(entry)
         key_words  = TextAnalysisService.extract_keywords(entry)
         journal_entry = JournalEntryModel(
@@ -20,7 +24,10 @@ class JournalService:
             sentiment=sentiment,
             emotions=None, 
             timestamp=datetime.now().isoformat(),
-            keywords = key_words
+            keywords = key_words,
+            location=location,
+            weather=weather_description
+
         )
         saved_entry = journal_entry.save()  
 
@@ -30,7 +37,7 @@ class JournalService:
             "timestamp": saved_entry.timestamp,
             "sentiment": saved_entry.sentiment,
             "entry": saved_entry.entry,
-
+            "keywords":key_words
         }
     @staticmethod
     def get_all_journal_entries(user_id):

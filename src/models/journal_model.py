@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 class JournalEntryModel:
     TABLE_NAME = "journals"
 
-    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None,):
+    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None,keywords=None,weather=None,location=None):
         """
         Initialize a new journal entry model.
         :param user_id: ID of the user creating the entry.
@@ -25,6 +25,9 @@ class JournalEntryModel:
         self.entry = entry
         self.sentiment = sentiment
         self.emotions = emotions
+        self.keywords = keywords
+        self.weather = weather
+        self.location = location
         print(f"[DEBUG] Initialized JournalEntryModel: {self.__dict__}")
 
     def save(self):
@@ -42,6 +45,10 @@ class JournalEntryModel:
                     "entry": self.entry,
                     "sentiment": self.sentiment,
                     "emotions": self.emotions,
+                    "keywords":self.keywords,
+                    "weather":self.weather,
+                    "location":self.location,
+
                 }
             )
             print(f"[DEBUG] Successfully saved journal entry: {self.entry_id}")

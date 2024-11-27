@@ -1,5 +1,5 @@
 from transformers import pipeline
-
+import requests
 # Initialize pipelines globally for efficiency
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 keyword_pipeline = pipeline("feature-extraction", model="sentence-transformers/all-MiniLM-L6-v2")  # Pre-trained model for keywords
@@ -51,3 +51,37 @@ class TextAnalysisService:
         keywords = [word for word, _ in sorted_keywords[:max_keywords]]
 
         return keywords
+    
+    import requests
+
+    def generate_weather_description(weather_data):
+        """
+        Generate a descriptive weather summary using Hugging Face's GPT-2 model.
+        
+        :param weather_data: Dictionary containing weather details (e.g., temperature, humidity, description).
+        :return: AI-generated weather description as a string.
+        """
+        api_url = "https://api-inference.huggingface.co/models/gpt2"
+        headers = {"Authorization": f"Bearer your_huggingface_api_token"} 
+
+        prompt = (
+            f"Provide a descriptive summary of the weather based on the following details:\n"
+            f"- Temperature: {weather_data['temperature']}°C\n"
+            f"- Humidity: {weather_data['humidity']}%\n"
+            f"- Condition: {weather_data['description']}\n"
+            f"- Wind Speed: {weather_data.get('wind_speed', 'N/A')} m/s\n\n"
+            f"Write a short and engaging paragraph about the current weather conditions."
+        )
+
+        payload = {"inputs": prompt}
+
+        try:
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()  
+
+            result = response.json()
+
+            return result[0]["generated_text"] if isinstance(result, list) else "Description not available."
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] Hugging Face API call failed: {e}")
+            return "Description not available."
