@@ -120,10 +120,8 @@ def authorize_calendar():
 @auth_bp.route("/calendar-callback", methods=["GET"])
 def calendar_callback():
     try:
-        # Get authorization code from Google
         code = request.args.get("code")
 
-        # Exchange authorization code for tokens
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
         token_url, headers, body = client.prepare_token_request(
@@ -135,29 +133,25 @@ def calendar_callback():
         token_response = requests.post(token_url, headers=headers, data=body)
         token_response_data = client.parse_request_body_response(token_response.text)
 
-        # Extract access and refresh tokens
         access_token = token_response_data["access_token"]
-        refresh_token = token_response_data.get("refresh_token")  # Only if offline access is granted
 
-        # Store tokens in JWT (or any other secure method) and return them to the frontend
         jwt_token = create_access_token(identity={"access_token": access_token})
         return jsonify({"jwt_token": jwt_token, "message": "Calendar access authorized!"}), 200
     except Exception as e:
-        return jsonify({"error": f"Failed to process calendar authorization: {e}"}), 500
+        return jsonify({"error": f"Could not get authorization: {e}"}), 500
     
 
 
-@auth_bp.route("/add-event", methods=["POST"])
-@jwt_required()  # Ensure the request is authenticated
+@auth_bp.route("/addevent", methods=["POST"])
+@jwt_required()  
 def add_event():
     try:
-        # Retrieve access token from the JWT
+        print("Reached endpoint")  
+
         user_identity = get_jwt_identity()
         access_token = user_identity.get("access_token")
         if not access_token:
-            return jsonify({"error": "No access token available. Please authorize calendar access."}), 401
-
-        # Prepare event data
+            return jsonify({"error": "No Authorization"}), 401
         event_details = request.json
         headers = {"Authorization": f"Bearer {access_token}"}
         response = requests.post(
