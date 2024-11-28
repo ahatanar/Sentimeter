@@ -8,6 +8,7 @@ from src.services.journal_service import JournalService
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from src.controllers.auth_controller import auth_bp
+from datetime import timedelta
 
 
 def create_app():
@@ -15,6 +16,8 @@ def create_app():
     app.config.from_object(Config)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)  # 24 hours for access tokens
+
     jwt = JWTManager(app)
     CORS(app, supports_credentials=True)
     try:
