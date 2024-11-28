@@ -6,11 +6,12 @@ from boto3.dynamodb.conditions import Key
 from collections import Counter
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 class JournalEntryModel:
     TABLE_NAME = "journals"
 
-    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None,keywords=None,weather=None,location=None):
+    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None,keywords=None,weather=None,location=None,sentiment_score=None):
         """
         Initialize a new journal entry model.
         :param user_id: ID of the user creating the entry.
@@ -19,15 +20,20 @@ class JournalEntryModel:
         :param emotions: The emotions data of the entry (optional).
         :param timestamp: The timestamp of the entry (optional, defaults to now).
         """
+        print("somehting broke when initializing")
+        print(sentiment_score)
+        print(f"Datatype of Sentiment Score: {type(sentiment_score)}")
+
         self.user_id = user_id
         self.timestamp = timestamp or datetime.now().isoformat()
         self.entry_id = str(uuid.uuid4())
         self.entry = entry
         self.sentiment = sentiment
         self.emotions = emotions
-        self.keywords = keywords
+        self.keywords = keywords 
         self.weather = weather
         self.location = location
+        self.sentiment_score = str(sentiment_score)
         print(f"[DEBUG] Initialized JournalEntryModel: {self.__dict__}")
 
     def save(self):
@@ -36,6 +42,8 @@ class JournalEntryModel:
         :return: The current instance of JournalEntryModel.
         """
         try:
+            print("pre saving, model")
+
             journals_table = get_table(self.TABLE_NAME)
             journals_table.put_item(
                 Item={
@@ -48,6 +56,7 @@ class JournalEntryModel:
                     "keywords":self.keywords,
                     "weather":self.weather,
                     "location":self.location,
+                    "sentiment_score":self.sentiment_score,
 
                 }
             )
@@ -82,6 +91,7 @@ class JournalEntryModel:
         :param user_id: The user's ID.
         :return: A list of journal entries.
         """
+        print("user_id:", user_id)
         try:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.query(
@@ -96,17 +106,32 @@ class JournalEntryModel:
             raise
 
     @classmethod
-    def delete_entry(cls, user_id, timestamp):
+    def delete_by_entry_id(cls, entry_id):
         """
-        Delete a journal entry by user ID and timestamp.
-        :param user_id: The user's ID.
-        :param timestamp: The timestamp of the entry to delete.
-        :return: None
+        Delete a journal entry using entry_id.
         """
         try:
             journals_table = get_table(cls.TABLE_NAME)
-            journals_table.delete_item(Key={"user_id": user_id, "timestamp": timestamp})
-            print(f"[DEBUG] Deleted journal entry for user {user_id} at {timestamp}")
+
+            response = journals_table.query(
+                IndexName="entry_id-index",  # Replace with your GSI name
+                KeyConditionExpression=Key("entry_id").eq(entry_id)
+            )
+
+            if not response["Items"]:
+                print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
+                return False
+
+            item = response["Items"][0]
+            user_id = item["user_id"]
+            timestamp = item["timestamp"]
+
+            journals_table.delete_item(
+                Key={"user_id": user_id, "timestamp": timestamp}
+            )
+            print(f"[DEBUG] Deleted journal entry with entry_id: {entry_id}")
+            return True
+
         except Exception as e:
             print(f"[ERROR] Failed to delete journal entry: {e}")
             raise
@@ -236,81 +261,103 @@ class JournalEntryModel:
     @classmethod
     def get_sentiments_by_date(cls, user_id, start_date, end_date):
         """
-        Retrieve sentiment data grouped by date within a specific date range.
-        :param user_id: The user's ID.
-        :param start_date: Start date (YYYY-MM-DD).
-        :param end_date: End date (YYYY-MM-DD).
-        :return: A dictionary with dates as keys and sentiment scores as values.
+        Retrieve entries filtered by a date range, including all timestamps within the end date.
         """
         try:
             journals_table = get_table(cls.TABLE_NAME)
 
+            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+            end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+
+            start_date_str = start_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
+            end_date_str = end_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
+
+            print(f"[DEBUG] Querying entries for user_id={user_id} between {start_date_str} and {end_date_str}")
+
             response = journals_table.scan(
                 FilterExpression=Attr("user_id").eq(user_id) &
-                                Attr("timestamp").between(start_date, end_date)
+                                Attr("timestamp").between(start_date_str, end_date_str)
             )
-
+            
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved {len(entries)} entries for user {user_id} between {start_date} and {end_date}")
-
-            sentiments = {}
-            for entry in entries:
-                date = entry["timestamp"][:10]  
-                score = 1 if entry["sentiment"] == "positive" else -1 if entry["sentiment"] == "negative" else 0
-                sentiments.setdefault(date, []).append(score)
-
-            averaged_sentiments = {date: sum(scores) / len(scores) for date, scores in sentiments.items()}
-            return averaged_sentiments
+            print(f"[DEBUG] Retrieved {len(entries)} entries for user_id={user_id} between {start_date_str} and {end_date_str}")
+            
+            return entries
         except Exception as e:
-            print(f"[ERROR] Failed to retrieve sentiments by date: {e}")
+            print(f"[ERROR] Failed to retrieve entries by date: {e}")
             raise
 
     @classmethod
     def get_last_week_sentiments(cls, user_id):
-        """
-        Retrieve sentiment data for the last week, aggregated by day.
-        :param user_id: The user's ID.
-        :return: A dictionary with dates as keys and average sentiment scores as values.
-        """
         today = datetime.now()
-        last_week = today - timedelta(days=7)
-        sentiments = cls.get_sentiments_by_date(user_id, last_week.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-        return {date: score for date, score in sorted(sentiments.items())}
+        last_week = today - timedelta(days=6)
+
+        raw_sentiments = cls.get_sentiments_by_date(
+            user_id,
+            last_week.strftime('%Y-%m-%d'),
+            today.strftime('%Y-%m-%d'),
+        )
+
+        # Aggregate by day
+        from collections import defaultdict
+        daily_sentiments = defaultdict(list)
+        for entry in raw_sentiments:
+            date = entry["timestamp"][:10]  
+            sentiment = float(entry["sentiment_score"]) 
+
+            daily_sentiments[date].append(sentiment)
+
+        # Compute daily averages
+        return {
+            date: sum(scores) / len(scores) for date, scores in daily_sentiments.items()
+        }
 
     @classmethod
     def get_last_month_sentiments(cls, user_id):
-        """
-        Retrieve sentiment data for the last month, aggregated by week.
-        :param user_id: The user's ID.
-        :return: A dictionary with weeks as keys (e.g., "week_46") and average sentiment scores as values.
-        """
         today = datetime.now()
-        last_month = today - timedelta(days=30)
-        sentiments = cls.get_sentiments_by_date(user_id, last_month.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        last_month = today - timedelta(days=29)
 
+        raw_sentiments = cls.get_sentiments_by_date(
+            user_id,
+            last_month.strftime('%Y-%m-%d'),
+            today.strftime('%Y-%m-%d'),
+        )
+
+        # Aggregate by week
         from collections import defaultdict
         weekly_sentiments = defaultdict(list)
-        for date, score in sentiments.items():
-            week = datetime.strptime(date, "%Y-%m-%d").isocalendar()[1]  
-            weekly_sentiments[week].append(score)
+        for entry in raw_sentiments:
+            date = datetime.strptime(entry["timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+            week = date.isocalendar()[1]  
+            sentiment = float(entry["sentiment_score"]) 
 
-        return {f"week_{week}": sum(scores) / len(scores) for week, scores in weekly_sentiments.items()}
+            weekly_sentiments[week].append(sentiment)
+
+        # Compute weekly averages
+        return {
+            f"week_{week}": sum(scores) / len(scores) for week, scores in weekly_sentiments.items()
+        }
 
     @classmethod
     def get_last_year_sentiments(cls, user_id):
-        """
-        Retrieve sentiment data for the last year, aggregated by month.
-        :param user_id: The user's ID.
-        :return: A dictionary with months as keys (e.g., "2024-11") and average sentiment scores as values.
-        """
         today = datetime.now()
-        last_year = today - timedelta(days=365)
-        sentiments = cls.get_sentiments_by_date(user_id, last_year.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        last_year = today - timedelta(days=364)
 
+        raw_sentiments = cls.get_sentiments_by_date(
+            user_id,
+            last_year.strftime('%Y-%m-%d'),
+            today.strftime('%Y-%m-%d'),
+        )
+
+        # Aggregate by month
         from collections import defaultdict
         monthly_sentiments = defaultdict(list)
-        for date, score in sentiments.items():
-            month = date[:7]  
-            monthly_sentiments[month].append(score)
+        for entry in raw_sentiments:
+            month = entry["timestamp"][:7]  
+            sentiment = float(entry["sentiment_score"]) 
+            monthly_sentiments[month].append(sentiment)
 
-        return {month: sum(scores) / len(scores) for month, scores in monthly_sentiments.items()}
+        # Compute monthly averages
+        return {
+            month: sum(scores) / len(scores) for month, scores in monthly_sentiments.items()
+        }
