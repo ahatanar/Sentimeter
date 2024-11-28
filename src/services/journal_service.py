@@ -12,12 +12,23 @@ class JournalService:
         :param entry: Text of the journal entry.
         :return: Dictionary with saved entry details.
         """
+        print("Error in location")
+
         location = WeatherService.get_location_from_ip(ip_address)
+        print("Error in weather")
+
         weather_data = WeatherService.get_weather_by_location(location)
+        print("Error in description")
+
         weather_description = TextAnalysisService.generate_weather_description(weather_data)
-        
-        sentiment, confidence = TextAnalysisService.analyze_sentiment(entry)
+        print("Error in sentiment")
+
+        sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
+        print("Error in keywords")
+
         key_words  = TextAnalysisService.extract_keywords(entry)
+        print("pre creation of entry service")
+        print(key_words)
         journal_entry = JournalEntryModel(
             user_id=user_id,
             entry=entry,
@@ -26,7 +37,8 @@ class JournalService:
             timestamp=datetime.now().isoformat(),
             keywords = key_words,
             location=location,
-            weather=weather_description
+            weather=weather_description,
+            sentiment_score=sentiment_score
 
         )
         saved_entry = journal_entry.save()  
@@ -122,3 +134,18 @@ class JournalService:
             "last_month": JournalEntryModel.get_last_month_sentiments(user_id),
             "last_year": JournalEntryModel.get_last_year_sentiments(user_id)
         }
+
+
+    @staticmethod
+    def get_entries_by_keyword(user_id, keyword):
+        """
+        Retrieve all journal entries for a user that contain a specific keyword.
+        """
+        return JournalEntryModel.get_entries_by_keyword(user_id, keyword)
+
+    @staticmethod
+    def get_top_keywords(user_id, top_n=10):
+        """
+        Retrieve the top N most common keywords across all entries for a user.
+        """
+        return JournalEntryModel.get_top_keywords(user_id, top_n)

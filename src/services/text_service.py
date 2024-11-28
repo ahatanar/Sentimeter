@@ -1,11 +1,13 @@
 from transformers import pipeline
 import requests
 import os
-# Initialize pipelines globally for efficiency
+import openai
+from keybert import KeyBERT
+from random import random
+from openai import OpenAI
+client = OpenAI()
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-keyword_pipeline = pipeline("feature-extraction", model="sentence-transformers/all-MiniLM-L6-v2")  # Pre-trained model for keywords
 HUGGING_FACE = os.getenv("HUGGING_FACE")
-
 class TextAnalysisService:
     """
     A service for performing text analysis, including sentiment analysis and keyword extraction.
@@ -24,66 +26,78 @@ class TextAnalysisService:
         confidence = results[0]["score"]
 
         # Normalize the sentiment to include 'neutral' if applicable
-        if sentiment == "positive" and confidence < 0.6:  # Low confidence positive is neutral
-            sentiment = "neutral"
-        elif sentiment == "negative" and confidence < 0.6:  # Low confidence negative is neutral
-            sentiment = "neutral"
+        if sentiment=="negative":
+            confidence = -1*confidence
 
+        if -0.5 <= confidence <= 0.5:
+            sentiment = "neutral"
         return sentiment, confidence
 
     @staticmethod
-    def extract_keywords(text, max_keywords=5):
+    def extract_keywords(text, top_n = 5):
         """
         Extract keywords from the given text using a pre-trained ML model.
         :param text: The input text to extract keywords from.
         :param max_keywords: The maximum number of keywords to extract.
         :return: List of extracted keywords.
         """
-        # Use the keyword pipeline to generate embeddings
-        embeddings = keyword_pipeline(text)
+        kw_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
 
-        # For simplicity, treat the embeddings' largest-weighted words as "keywords"
-        # Advanced: Fine-tune this logic for real keyword ranking.
-        words = text.split()  # Split text into words (tokenization can be improved)
-        word_weights = [sum(embedding) for embedding in embeddings[0]]
+        print("loaded model")
+        keywords = kw_model.extract_keywords(
+            text,
+            keyphrase_ngram_range=(1, 1),  # Single words and bigrams
+            stop_words='english',         # Remove common stop words
+            top_n=top_n                   # Number of keywords to extract
+        )
+        print("didnt return")
+        print(keywords)
+        return [kw[0] for kw in keywords]  # Return keywords only
+        
 
-        # Pair words with weights, sort by weight, and extract the top keywords
-        word_weights = list(zip(words, word_weights))
-        sorted_keywords = sorted(word_weights, key=lambda x: x[1], reverse=True)
-        keywords = [word for word, _ in sorted_keywords[:max_keywords]]
 
-        return keywords
-    
-    import requests
+
+    openai.api_key = "your_openai_api_key"
 
     def generate_weather_description(weather_data):
         """
-        Generate a descriptive weather summary using Hugging Face's GPT-2 model.
+        Generate a descriptive weather summary using OpenAI's GPT-3.5-turbo model.
         
         :param weather_data: Dictionary containing weather details (e.g., temperature, humidity, description).
         :return: AI-generated weather description as a string.
         """
-        api_url = "https://api-inference.huggingface.co/models/gpt2"
-        headers = {"Authorization": f"{HUGGING_FACE}"} 
+        # Assign a random city if the city is unknown
+        if weather_data.get('city', 'unknown') == "unknown":
+            weather_data['city'] = random.choice(
+                ["New York", "Beijing", "Oshawa", "Toronto", "Vatican City", 
+                "London", "Birmingham", "Miami", "Palo Alto", "Sacramento", 
+                "Austin", "Houston", "Seattle"]
+            )
 
+        # Define the prompt
         prompt = (
-            f"Provide a descriptive summary of the weather based on the following details:\n"
-            f"- Temperature: {weather_data['temperature']}°C\n"
-            f"- Humidity: {weather_data['humidity']}%\n"
-            f"- Condition: {weather_data['description']}\n"
+            f"The weather details are as follows:\n"
+            f"- City: {weather_data.get('city', 'N/A')}\n"
+            f"- Temperature: {weather_data.get('temperature', 'N/A')}°C\n"
+            f"- Humidity: {weather_data.get('humidity', 'N/A')}%\n"
+            f"- Condition: {weather_data.get('description', 'N/A')}\n"
             f"- Wind Speed: {weather_data.get('wind_speed', 'N/A')} m/s\n\n"
-            f"Write a short and engaging paragraph about the current weather conditions."
+            f"Now, write a short, vivid weather description for a journal entry. Be descriptive and engaging."
         )
 
-        payload = {"inputs": prompt}
-
         try:
-            response = requests.post(api_url, headers=headers, json=payload)
-            response.raise_for_status()  
-
-            result = response.json()
-
-            return result[0]["generated_text"] if isinstance(result, list) else "Description not available."
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Hugging Face API call failed: {e}")
+            # Correct API call
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a creative assistant generating weather descriptions."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=100,
+                temperature=0.7,
+            )
+            # Extract the response correctly
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[ERROR] OpenAI API call failed: {e}")
             return "Description not available."

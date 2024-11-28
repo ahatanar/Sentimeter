@@ -35,6 +35,7 @@ class WeatherService:
         :param ip_address: The IP address of the user.
         :return: Location details (e.g., city, region, country).
         """
+        print(ip_address)
         try:
             response = requests.get(f"http://ip-api.com/json/{ip_address}")
             response.raise_for_status()
@@ -43,8 +44,8 @@ class WeatherService:
                 "city": data.get("city", "Unknown"),
                 "region": data.get("regionName", "Unknown"),
                 "country": data.get("country", "Unknown"),
-                "latitude": data.get("lat"),
-                "longitude": data.get("lon")
+                "latitude": data.get("lat","unknown"),
+                "longitude": data.get("lon","unknown")
             }
         except requests.exceptions.RequestException as e:
             print(f"[ERROR] Failed to fetch location: {e}")
