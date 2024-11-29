@@ -51,7 +51,7 @@ Located in the `Sentimeter` folder, this component includes:
 
 ## HomePage
 ### Home Page
-![Home Page](Landingpage.png)
+![Home Page](Assets/Landingpage.png)
 
 ### Learn More Section
 ![Learn More](LearnMore.png)
