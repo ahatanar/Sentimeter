@@ -31,3 +31,23 @@ Located in the `Sentimeter` folder, this component includes:
 1. Navigate to the backend directory:
    ```bash
    cd Sentimeter
+2. Install the required Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+3. Start the backend server:
+   ```
+   python src/app.py
+
+### Frontend
+1. Navigate to the frontend directory:
+   ```
+   cd SentimeterFrontend
+2. Install the required npm dependencies:
+   ```
+   npm install
+3. Run the frontend development server:
+   ```
+   npm run dev
+
+##HomePage
+
