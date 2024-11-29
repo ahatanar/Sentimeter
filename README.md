@@ -54,11 +54,11 @@ Located in the `Sentimeter` folder, this component includes:
 ![Home Page](Assets/Landingpage.png)
 
 ### Learn More Section
-![Learn More](Assests/LearnMore.png)
+![Learn More](Assets/LearnMore.png)
 
 ### Login Page
-![Login Page](Assests/Login.png)
+![Login Page](Assets/Login.png)
 
 ### Dashboard
-![Dashboard](Assests/Dashboard.png)
+![Dashboard](Assets/Dashboard.png)
 
