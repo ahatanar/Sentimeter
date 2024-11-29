@@ -49,5 +49,16 @@ Located in the `Sentimeter` folder, this component includes:
    ```
    npm run dev
 
-##HomePage
+## HomePage
+### Home Page
+![Home Page](Landingpage.png)
+
+### Learn More Section
+![Learn More](LearnMore.png)
+
+### Login Page
+![Login Page](Login.png)
+
+### Dashboard
+![Dashboard](Dashboard.png)
 
