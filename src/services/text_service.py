@@ -3,11 +3,13 @@ import requests
 import os
 import openai
 from keybert import KeyBERT
-from random import random
+from random import Random
 from openai import OpenAI
 client = OpenAI()
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 HUGGING_FACE = os.getenv("HUGGING_FACE")
+kw_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
+
 class TextAnalysisService:
     """
     A service for performing text analysis, including sentiment analysis and keyword extraction.
@@ -41,7 +43,6 @@ class TextAnalysisService:
         :param max_keywords: The maximum number of keywords to extract.
         :return: List of extracted keywords.
         """
-        kw_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
 
         print("loaded model")
         keywords = kw_model.extract_keywords(
@@ -57,7 +58,6 @@ class TextAnalysisService:
 
 
 
-    openai.api_key = "your_openai_api_key"
 
     def generate_weather_description(weather_data):
         """
@@ -66,38 +66,39 @@ class TextAnalysisService:
         :param weather_data: Dictionary containing weather details (e.g., temperature, humidity, description).
         :return: AI-generated weather description as a string.
         """
-        # Assign a random city if the city is unknown
-        if weather_data.get('city', 'unknown') == "unknown":
-            weather_data['city'] = random.choice(
-                ["New York", "Beijing", "Oshawa", "Toronto", "Vatican City", 
-                "London", "Birmingham", "Miami", "Palo Alto", "Sacramento", 
-                "Austin", "Houston", "Seattle"]
-            )
-
-        # Define the prompt
+    
+        print("error in promp defining")
         prompt = (
-            f"The weather details are as follows:\n"
-            f"- City: {weather_data.get('city', 'N/A')}\n"
-            f"- Temperature: {weather_data.get('temperature', 'N/A')}°C\n"
-            f"- Humidity: {weather_data.get('humidity', 'N/A')}%\n"
-            f"- Condition: {weather_data.get('description', 'N/A')}\n"
-            f"- Wind Speed: {weather_data.get('wind_speed', 'N/A')} m/s\n\n"
-            f"Now, write a short, vivid weather description for a journal entry. Be descriptive and engaging."
+        f"The weather details are as follows:\n"
+        f"- Temperature: {weather_data.get('temperature', 'N/A')}°C\n"
+        f"- Humidity: {weather_data.get('humidity', 'N/A')}%\n"
+        f"- Condition: {weather_data.get('description', 'N/A')}\n"
+        f"- Wind Speed: {weather_data.get('wind_speed', 'N/A')} m/s\n\n"
+        f"Now, write a short, vivid weather description for a journal entry. Be descriptive and engaging, but factual we just want the description text nothing else"
         )
 
         try:
-            # Correct API call
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a creative assistant generating weather descriptions."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=100,
-                temperature=0.7,
-            )
-            # Extract the response correctly
-            return response.choices[0].message.content.strip()
+            print("did response even work?")
+            response = client.chat.completions.create(
+            model="gpt-4o-2024-08-06", 
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a weather describing robot",
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                },
+            ],
+            max_tokens=200,
+            temperature=0.5,  
+        )
+
+            print(response)
+            weather_description = response.choices[0].message.content.strip()
+            print(weather_description)
+            return weather_description
         except Exception as e:
             print(f"[ERROR] OpenAI API call failed: {e}")
             return "Description not available."

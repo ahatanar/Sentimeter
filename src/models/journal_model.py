@@ -7,6 +7,8 @@ from collections import Counter
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
 from collections import defaultdict
+from collections import OrderedDict
+from dateutil.relativedelta import relativedelta
 
 class JournalEntryModel:
     TABLE_NAME = "journals"
@@ -106,7 +108,7 @@ class JournalEntryModel:
             raise
 
     @classmethod
-    def delete_by_entry_id(cls, entry_id):
+    def delete_entry(cls, entry_id):
         """
         Delete a journal entry using entry_id.
         """
@@ -291,73 +293,107 @@ class JournalEntryModel:
     def get_last_week_sentiments(cls, user_id):
         today = datetime.now()
         last_week = today - timedelta(days=6)
-
+        
         raw_sentiments = cls.get_sentiments_by_date(
             user_id,
             last_week.strftime('%Y-%m-%d'),
             today.strftime('%Y-%m-%d'),
         )
-
-        # Aggregate by day
-        from collections import defaultdict
+        
         daily_sentiments = defaultdict(list)
         for entry in raw_sentiments:
             date = entry["timestamp"][:10]  
-            sentiment = float(entry["sentiment_score"]) 
-
+            sentiment = float(entry["sentiment_score"])
             daily_sentiments[date].append(sentiment)
-
-        # Compute daily averages
-        return {
+        
+        averages = {
             date: sum(scores) / len(scores) for date, scores in daily_sentiments.items()
         }
+        
+        week_data = []
+        for i in range(7):
+            day = last_week + timedelta(days=i)
+            formatted_day = day.strftime('%A')
+            week_data.append({
+                "day": formatted_day,
+                "average_sentiment": averages.get(day.strftime('%Y-%m-%d'), 0)
+            })
+        
+        print(week_data)
+        return week_data
 
     @classmethod
     def get_last_month_sentiments(cls, user_id):
         today = datetime.now()
         last_month = today - timedelta(days=29)
-
+        
         raw_sentiments = cls.get_sentiments_by_date(
             user_id,
             last_month.strftime('%Y-%m-%d'),
             today.strftime('%Y-%m-%d'),
         )
-
-        # Aggregate by week
-        from collections import defaultdict
+        
         weekly_sentiments = defaultdict(list)
         for entry in raw_sentiments:
             date = datetime.strptime(entry["timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
-            week = date.isocalendar()[1]  
-            sentiment = float(entry["sentiment_score"]) 
-
-            weekly_sentiments[week].append(sentiment)
-
-        # Compute weekly averages
-        return {
-            f"week_{week}": sum(scores) / len(scores) for week, scores in weekly_sentiments.items()
+            days_ago = (today - date).days
+            if days_ago <= 6:
+                label = "This week"
+            elif days_ago <= 13:
+                label = "Last week"
+            elif days_ago <= 20:
+                label = "2 weeks ago"
+            elif days_ago <= 27:
+                label = "3 weeks ago"
+            else:
+                label = "4 weeks ago"
+            sentiment = float(entry["sentiment_score"])
+            weekly_sentiments[label].append(sentiment)
+        
+        averages = {
+            label: sum(scores) / len(scores) for label, scores in weekly_sentiments.items()
         }
+        
+        labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
+        week_data = [{"week_label": label, "average_sentiment": averages.get(label, 0)} for label in labels]
+        
+        print(week_data)
+        return week_data
 
     @classmethod
     def get_last_year_sentiments(cls, user_id):
         today = datetime.now()
         last_year = today - timedelta(days=364)
-
+        
         raw_sentiments = cls.get_sentiments_by_date(
             user_id,
             last_year.strftime('%Y-%m-%d'),
             today.strftime('%Y-%m-%d'),
         )
-
-        # Aggregate by month
-        from collections import defaultdict
+        
         monthly_sentiments = defaultdict(list)
         for entry in raw_sentiments:
-            month = entry["timestamp"][:7]  
-            sentiment = float(entry["sentiment_score"]) 
+            month = entry["timestamp"][:7]  # Extract 'YYYY-MM'
+            sentiment = float(entry["sentiment_score"])
             monthly_sentiments[month].append(sentiment)
-
-        # Compute monthly averages
-        return {
+        
+        averages = {
             month: sum(scores) / len(scores) for month, scores in monthly_sentiments.items()
         }
+        
+        for i in range(12):
+            month_date = (last_year + relativedelta(months=i))
+            month_key = month_date.strftime('%Y-%m')  # e.g., '2023-11'
+            if month_key not in averages:
+                averages[month_key] = 0
+        
+        month_data = [
+            {
+                "month": datetime.strptime(month, "%Y-%m").strftime("Month of %B"),
+                "average_sentiment": avg
+            }
+            for month, avg in sorted(averages.items(), key=lambda x: datetime.strptime(x[0], "%Y-%m"))
+        ]
+        
+        print(month_data)
+        return month_data

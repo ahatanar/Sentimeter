@@ -1,15 +1,16 @@
 import requests
 import os
-
+from random import random
 WEATHER_KEY = os.getenv("WEATHER_KEY")
 class WeatherService:
     @staticmethod
     def get_weather_by_location(location):
-        """
-        Fetch weather data for a given location.
-        :param location: Dictionary containing city or coordinates.
-        :return: Weather details.
-        """
+        if location.get('city', 'unknown') == "unknown":
+            location['city'] = random.choice(
+                ["New York", "Beijing", "Oshawa", "Toronto", "Vatican City", 
+                "London", "Birmingham", "Miami", "Palo Alto", "Sacramento", 
+                "Austin", "Houston", "Seattle"]
+            )
         api_key = WEATHER_KEY
         url = f"https://api.openweathermap.org/data/2.5/weather?q={location['city']}&units=metric&appid={api_key}"
         try:
