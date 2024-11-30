@@ -22,12 +22,11 @@ class TextAnalysisService:
         :param text: The input text to analyze.
         :return: Sentiment (positive/neutral/negative) and confidence score.
         """
-        # Get sentiment prediction
         results = sentiment_pipeline(text, truncation=True)
-        sentiment = results[0]["label"].lower()  # Convert to lowercase for uniformity
+        sentiment = results[0]["label"].lower() 
         confidence = results[0]["score"]
 
-        # Normalize the sentiment to include 'neutral' if applicable
+       
         if sentiment=="negative":
             confidence = -1*confidence
 
@@ -47,13 +46,13 @@ class TextAnalysisService:
         print("loaded model")
         keywords = kw_model.extract_keywords(
             text,
-            keyphrase_ngram_range=(1, 1),  # Single words and bigrams
-            stop_words='english',         # Remove common stop words
-            top_n=top_n                   # Number of keywords to extract
+            keyphrase_ngram_range=(1, 1),  
+            stop_words='english',        
+            top_n=top_n                  
         )
         print("didnt return")
         print(keywords)
-        return [kw[0] for kw in keywords]  # Return keywords only
+        return [kw[0] for kw in keywords]  
         
 
 

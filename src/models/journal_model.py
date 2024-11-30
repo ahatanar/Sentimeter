@@ -110,7 +110,7 @@ class JournalEntryModel:
             journals_table = get_table(cls.TABLE_NAME)
 
             response = journals_table.query(
-                IndexName="entry_id-index",  # Replace with your GSI name
+                IndexName="entry_id-index",  
                 KeyConditionExpression=Key("entry_id").eq(entry_id)
             )
 
@@ -367,7 +367,7 @@ class JournalEntryModel:
         
         monthly_sentiments = defaultdict(list)
         for entry in raw_sentiments:
-            month = entry["timestamp"][:7]  # Extract 'YYYY-MM'
+            month = entry["timestamp"][:7] 
             sentiment = float(entry["sentiment_score"])
             monthly_sentiments[month].append(sentiment)
         
@@ -377,7 +377,7 @@ class JournalEntryModel:
         
         for i in range(12):
             month_date = (last_year + relativedelta(months=i))
-            month_key = month_date.strftime('%Y-%m')  # e.g., '2023-11'
+            month_key = month_date.strftime('%Y-%m') 
             if month_key not in averages:
                 averages[month_key] = 0
         

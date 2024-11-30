@@ -7,7 +7,9 @@ journal_bp = Blueprint("journal", __name__, url_prefix="/api/journals")
 
 def extract_user_id():
     """
-    Extract the google_id from the JWT payload.
+    Extract the `google_id` from the JWT payload.
+    
+    :return: The `google_id` of the authenticated user.
     """
     return get_jwt_identity()["google_id"]
 
@@ -15,6 +17,19 @@ def extract_user_id():
 @journal_bp.route("", methods=["POST"])
 @jwt_required()
 def create_journal_entry():
+    """
+    Create a new journal entry for the authenticated user.
+    
+    Endpoint: POST /api/journals
+    
+    Request Body:
+    {
+        "entry": "Your journal entry text",
+        "date": "Optional date in ISO format (e.g., 2024-11-30T14:30:00)"
+    }
+    
+    :return: JSON response with a success message and the `entry_id` if created successfully.
+    """
     user_id = extract_user_id()
     data = request.json
 
@@ -23,7 +38,7 @@ def create_journal_entry():
 
     try:
         request_ip = request.remote_addr
-        optional_date = data.get("date")  
+        optional_date = data.get("date")  # Optional date parameter
         entry_id = JournalService.create_journal_entry(user_id, data["entry"], request_ip, optional_date)
         return jsonify({"message": "Journal entry created successfully", "entry_id": entry_id}), 201
     except Exception as e:
@@ -33,6 +48,13 @@ def create_journal_entry():
 @journal_bp.route("", methods=["GET"])
 @jwt_required()
 def get_all_journal_entries():
+    """
+    Retrieve all journal entries for the authenticated user.
+    
+    Endpoint: GET /api/journals
+    
+    :return: JSON response with a list of all journal entries or a 404 message if none found.
+    """
     user_id = extract_user_id()
     try:
         journal_entries = JournalService.get_all_journal_entries(user_id)
@@ -46,6 +68,14 @@ def get_all_journal_entries():
 @journal_bp.route("/<entry_id>", methods=["DELETE"])
 @jwt_required()
 def delete_journal_entry(entry_id):
+    """
+    Delete a specific journal entry by its `entry_id`.
+    
+    Endpoint: DELETE /api/journals/<entry_id>
+    
+    :param entry_id: The ID of the journal entry to delete.
+    :return: JSON response with a success or error message.
+    """
     user_id = extract_user_id()
     try:
         success = JournalService.delete_journal_entry(entry_id)
@@ -59,6 +89,13 @@ def delete_journal_entry(entry_id):
 @journal_bp.route("/recent", methods=["GET"])
 @jwt_required()
 def get_recent_entries():
+    """
+    Retrieve the most recent journal entries for the authenticated user.
+    
+    Endpoint: GET /api/journals/recent
+    
+    :return: JSON response with the most recent journal entries.
+    """
     user_id = extract_user_id()
     try:
         entries = JournalService.get_recent_entries(user_id)
@@ -70,6 +107,17 @@ def get_recent_entries():
 @journal_bp.route("/filter", methods=["GET"])
 @jwt_required()
 def get_entries_by_time():
+    """
+    Retrieve journal entries for a specific year and month.
+    
+    Endpoint: GET /api/journals/filter?year=<year>&month=<month>
+    
+    Query Parameters:
+    - `year`: The year to filter journal entries (e.g., 2024).
+    - `month`: The month to filter journal entries (e.g., 11 for November).
+    
+    :return: JSON response with the filtered journal entries or an error message.
+    """
     user_id = extract_user_id()
     year = request.args.get("year")
     month = request.args.get("month")
@@ -85,6 +133,13 @@ def get_entries_by_time():
 @journal_bp.route("/heatmap", methods=["GET"])
 @jwt_required()
 def get_heatmap_data():
+    """
+    Retrieve heatmap data for the authenticated user's journal entries.
+    
+    Endpoint: GET /api/journals/heatmap
+    
+    :return: JSON response with heatmap data.
+    """
     user_id = extract_user_id()
     try:
         heatmap_data = JournalService.get_heatmap_data(user_id)
@@ -96,31 +151,17 @@ def get_heatmap_data():
 @journal_bp.route("/dashboard/sentiments", methods=["GET"])
 @jwt_required()
 def get_dashboard_sentiments():
+    """
+    Retrieve sentiment analysis data for the authenticated user's dashboard.
+    
+    Endpoint: GET /api/journals/dashboard/sentiments
+    
+    :return: JSON response with sentiment data for the dashboard.
+    """
     user_id = extract_user_id()
     try:
         sentiments = JournalService.get_dashboard_sentiments(user_id)
         return jsonify(sentiments), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-
-
-@journal_bp.route("/search", methods=["GET"])
-@jwt_required()
-def get_entries_by_keyword():
-    """
-    Retrieve all journal entries for a user that contain a specific keyword.
-    Example: GET /api/journals/search?keyword=workout
-    """
-    user_id = extract_user_id()
-    keyword = request.args.get("keyword")
-    if not keyword:
-        return jsonify({"error": "Keyword parameter is required"}), 400
-
-    try:
-        entries = JournalService.get_entries_by_keyword(user_id, keyword)
-        return jsonify({"message": f"Entries with keyword '{keyword}' retrieved", "entries": entries}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

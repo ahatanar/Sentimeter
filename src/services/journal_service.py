@@ -20,7 +20,6 @@ class JournalService:
         sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
         key_words = TextAnalysisService.extract_keywords(entry)
 
-        # Parse the optional date or use current timestamp
         timestamp = (
             datetime.fromisoformat(optional_date)
             if optional_date else
