@@ -1,0 +1,11 @@
+CREATE DATABASE kevin;
+USE kevin;
+CREATE TABLE entries (
+id VARCHAR(100) NOT NULL PRIMARY KEY,
+title VARCHAR(255) NOT NULL,
+content TEXT NOT NULL,
+date VARCHAR(50) NOT NULL,
+sentiment VARCHAR(50) NOT NULL
+);
+
+SELECT * FROM entries;
