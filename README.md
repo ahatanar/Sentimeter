@@ -33,6 +33,7 @@ Located in the `Sentimeter` folder, this component includes:
    cd Sentimeter
 2. Install the required Python dependencies:
    ```bash
+   python setup.py install
    pip install -r requirements.txt
 3. Start the backend server:
    ```
