@@ -22,22 +22,16 @@ class JournalEntryModel:
         :param emotions: The emotions data of the entry (optional).
         :param timestamp: The timestamp of the entry (optional, defaults to now).
         """
-        print("somehting broke when initializing")
-        print(sentiment_score)
-        print(f"Datatype of Sentiment Score: {type(sentiment_score)}")
-
         self.user_id = user_id
         self.timestamp = timestamp or datetime.now().isoformat()
         self.entry_id = str(uuid.uuid4())
         self.entry = entry
         self.sentiment = sentiment
         self.emotions = emotions
-        self.keywords = keywords 
+        self.keywords = keywords
         self.weather = weather
         self.location = location
         self.sentiment_score = str(sentiment_score)
-        print(f"[DEBUG] Initialized JournalEntryModel: {self.__dict__}")
-
     def save(self):
         """
         Save the journal entry to DynamoDB and return the entry instance.

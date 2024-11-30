@@ -5,43 +5,40 @@ from src.services.weather_service import WeatherService
 
 class JournalService:
     @staticmethod
-    def create_journal_entry(user_id, entry,ip_address):
+    def create_journal_entry(user_id, entry, ip_address, optional_date=None):
         """
         Create and save a new journal entry.
         :param user_id: ID of the user creating the entry.
         :param entry: Text of the journal entry.
+        :param ip_address: IP address for location/weather lookup.
+        :param optional_date: Optional timestamp for the journal entry (ISO format string).
         :return: Dictionary with saved entry details.
         """
-        print("Error in location")
-
         location = WeatherService.get_location_from_ip(ip_address)
-        print("Error in weather")
-
         weather_data = WeatherService.get_weather_by_location(location)
-        print("Error in description")
-
         weather_description = TextAnalysisService.generate_weather_description(weather_data)
-        print("Error in sentiment")
-
         sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
-        print("Error in keywords")
+        key_words = TextAnalysisService.extract_keywords(entry)
 
-        key_words  = TextAnalysisService.extract_keywords(entry)
-        print("pre creation of entry service")
-        print(key_words)
+        # Parse the optional date or use current timestamp
+        timestamp = (
+            datetime.fromisoformat(optional_date)
+            if optional_date else
+            datetime.now()
+        )
+
         journal_entry = JournalEntryModel(
             user_id=user_id,
             entry=entry,
             sentiment=sentiment,
-            emotions=None, 
-            timestamp=datetime.now().isoformat(),
-            keywords = key_words,
+            emotions=None,
+            timestamp=timestamp.isoformat(),
+            keywords=key_words,
             location=location,
             weather=weather_description,
             sentiment_score=sentiment_score
-
         )
-        saved_entry = journal_entry.save()  
+        saved_entry = journal_entry.save()
 
         return {
             "entry_id": saved_entry.entry_id,
@@ -49,7 +46,7 @@ class JournalService:
             "timestamp": saved_entry.timestamp,
             "sentiment": saved_entry.sentiment,
             "entry": saved_entry.entry,
-            "keywords":key_words
+            "keywords": key_words
         }
     @staticmethod
     def get_all_journal_entries(user_id):
