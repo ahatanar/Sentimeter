@@ -13,7 +13,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-
+FRONTEND_URL = "http://localhost:3000"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 # Login with Google
@@ -93,7 +93,7 @@ def callback():
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
         print(f"JWT Token: {token}")
 
-        return jsonify({"token": token, "message": "Login successful!"}), 200
+        return redirect(f"{FRONTEND_URL}?jwt={token}")
 
     except Exception as e:
         print(f"Error during callback: {e}")
