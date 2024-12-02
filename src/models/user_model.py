@@ -18,4 +18,4 @@ class UserModel:
     def find_by_google_id(cls, google_id):
         table = get_table(cls.TABLE_NAME)
         response = table.get_item(Key={"user_id": google_id})
-        return response.get("Item")  #
+        return response.get("Item")  

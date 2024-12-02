@@ -73,7 +73,7 @@ class TextAnalysisService:
         f"- Humidity: {weather_data.get('humidity', 'N/A')}%\n"
         f"- Condition: {weather_data.get('description', 'N/A')}\n"
         f"- Wind Speed: {weather_data.get('wind_speed', 'N/A')} m/s\n\n"
-        f"Now, write a short, vivid weather description for a journal entry. Be descriptive and engaging, but factual we just want the description text nothing else"
+        f"Now, write a short, accurate weather description for a journal entry. Be descriptive and factual like combine casual casual conversation tone with scientific tone to be accurate, for example sunny with x degrees dark windy day with 45kmh winds. give thetext description, or be like fast winds, humid etc, limit response to 150 chars at maximum "
         )
 
         try:
@@ -90,7 +90,7 @@ class TextAnalysisService:
                     "content": prompt
                 },
             ],
-            max_tokens=200,
+            max_tokens=150,
             temperature=0.5,  
         )
 

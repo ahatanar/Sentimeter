@@ -38,7 +38,6 @@ class JournalEntryModel:
         :return: The current instance of JournalEntryModel.
         """
         try:
-            print("pre saving, model")
 
             journals_table = get_table(self.TABLE_NAME)
             journals_table.put_item(
@@ -180,19 +179,19 @@ class JournalEntryModel:
     @classmethod
     def get_recent_entries(cls, user_id):
         """
-        Retrieve the last 10 journal entries for a user.
+        Retrieve the last 12 journal entries for a user.
         :param user_id: The user's ID.
-        :return: A list of the 10 most recent journal entries.
+        :return: A list of the 12 most recent journal entries.
         """
         try:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.query(
                 KeyConditionExpression=Key("user_id").eq(user_id),
                 ScanIndexForward=False, 
-                Limit=10  
+                Limit=12
             )
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved last 10 entries for user {user_id}: {entries}")
+            print(f"[DEBUG] Retrieved last 12 entries for user {user_id}: {entries}")
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve recent entries: {e}")
@@ -241,7 +240,7 @@ class JournalEntryModel:
             entries = response.get("Items", [])
             print(f"[DEBUG] Retrieved {len(entries)} entries for user {user_id} in the last 365 days.")
 
-            date_counts = Counter(entry["timestamp"][:10] for entry in entries)  # Extract only the date (YYYY-MM-DD)
+            date_counts = Counter(entry["timestamp"][:10] for entry in entries)  
 
             heatmap_data = {}
             for i in range(365):

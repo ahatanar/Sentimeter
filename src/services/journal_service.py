@@ -73,14 +73,14 @@ class JournalService:
         :param entry_id: Entry ID of the journal entry to delete.
         :return: True if deletion was successful, False otherwise.
         """
-        return JournalEntryModel.delete_by_entry_id(entry_id)
+        return JournalEntryModel.delete_entry(entry_id)
 
     @staticmethod
     def get_recent_entries(user_id):
         """
-        Fetch the last 10 journal entries for a user.
+        Fetch the last 12 journal entries for a user.
         :param user_id: The user's ID.
-        :return: A list of the 10 most recent journal entries.
+        :return: A list of the 12 most recent journal entries.
         """
         return JournalEntryModel.get_recent_entries(user_id)
 
@@ -104,16 +104,7 @@ class JournalService:
         """
         return JournalEntryModel.get_dashboard_data(user_id)
     
-    @staticmethod
-    def get_entries_by_month(user_id, year, month):
-        """
-        Fetch journal entries for a specific month and year.
-        :param user_id: The user's ID.
-        :param year: Year to filter by (e.g., 2024).
-        :param month: Month to filter by (e.g., 11 for November).
-        :return: A list of journal entries for the specified month and year.
-        """
-        return JournalEntryModel.get_entries_by_month(user_id, year, month)
+
     @staticmethod
     def get_heatmap_data(user_id):
         """
