@@ -39,8 +39,8 @@ def create_journal_entry():
     try:
         request_ip = request.remote_addr
         optional_date = data.get("date") 
-        entry_id = JournalService.create_journal_entry(user_id, data["entry"], request_ip, optional_date)
-        return jsonify({"message": "Journal entry created successfully", "entry_id": entry_id}), 201
+        entry= JournalService.create_journal_entry(user_id, data["entry"], request_ip, optional_date)
+        return jsonify({"message": "Journal entry created successfully", "entry":entry}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

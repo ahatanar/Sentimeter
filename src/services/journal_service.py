@@ -39,14 +39,8 @@ class JournalService:
         )
         saved_entry = journal_entry.save()
 
-        return {
-            "entry_id": saved_entry.entry_id,
-            "user_id": saved_entry.user_id,
-            "timestamp": saved_entry.timestamp,
-            "sentiment": saved_entry.sentiment,
-            "entry": saved_entry.entry,
-            "keywords": key_words
-        }
+        return saved_entry.to_dict()
+
     @staticmethod
     def get_all_journal_entries(user_id):
         """

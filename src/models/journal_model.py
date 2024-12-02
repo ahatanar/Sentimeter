@@ -60,7 +60,11 @@ class JournalEntryModel:
         except Exception as e:
             print(f"[ERROR] Failed to save journal entry: {e}")
             raise
-
+    def to_dict(self):
+        """
+        Return all attributes of the model as a dictionary.
+        """
+        return self.__dict__
     @classmethod
     def get_entry(cls, user_id, timestamp):
         """
