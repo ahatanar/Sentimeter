@@ -109,10 +109,12 @@ class TestAuthController(unittest.TestCase):
         with self.app.test_request_context(query_string={"code": "test-code"}):
             response = self.client.get('/api/auth/callback')
 
-        # Assertions
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['message'], 'Login successful!')
-        self.assertIn('token', response.json)
+        self.assertEqual(response.status_code, 302)  # Ensure the redirect occurs
+
+        # Assertions for cookie
+        cookies = response.headers.getlist('Set-Cookie')
+        self.assertTrue(any("access_token_cookie=" in cookie for cookie in cookies))  # Ensure cookie is set
+
         mock_user_model.find_by_google_id.assert_called_once_with("test-google-id")
         mock_user_model.save.assert_called_once_with("test-google-id", "test@example.com", "Test User")
 
