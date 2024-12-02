@@ -1,12 +1,11 @@
-from flask import Blueprint, redirect, request, jsonify, url_for
-from flask_jwt_extended import create_access_token
+from flask import Blueprint, redirect, request, jsonify, url_for,  make_response
+from flask_jwt_extended import create_access_token,set_access_cookies
 from oauthlib.oauth2 import WebApplicationClient
 from src.models.user_model import UserModel
 from src.database import get_table
 import requests
 import os
 from flask_jwt_extended import get_jwt_identity, jwt_required
-
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # Google OAuth Configuration
@@ -16,15 +15,19 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
-# Login with Google
+
+def extract_user_id():
+    """
+    Extract the `google_id` from the JWT payload.
+    
+    :return: The `google_id` of the authenticated user.
+    """
+    return get_jwt_identity()["google_id"]
 @auth_bp.route("/login", methods=["GET"])
 def login():
-    print("Login endpoint hit")
 
     try:
-        print("try")
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
-        print("check after geetting discovery",google_provider_cfg)
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
         print(f"Authorization endpoint: {authorization_endpoint}")
 
@@ -46,12 +49,10 @@ def callback():
     try:
         # Get the authorization code from Google
         code = request.args.get("code")
-        print(f"Authorization code: {code}")
 
         # Get Google's token endpoint
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
-        print(f"Token endpoint: {token_endpoint}")
 
         # Exchange the authorization code for tokens
         token_url, headers, body = client.prepare_token_request(
@@ -60,28 +61,21 @@ def callback():
             redirect_url=url_for("auth.callback", _external=True),
             client_secret=GOOGLE_CLIENT_SECRET
         )
-        print(f"Token request body: {body}")
         token_response = requests.post(token_url, headers=headers, data=body)
-        print(f"Token response status: {token_response.status_code}")
-        print(f"Token response body: {token_response.text}")
+     
 
         client.parse_request_body_response(token_response.text)
 
-        # Get user info from Google's userinfo endpoint
         userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
         uri, headers, body = client.add_token(userinfo_endpoint)
         userinfo_response = requests.get(uri, headers=headers, data=body)
-        print(f"User info response: {userinfo_response.status_code}")
-        print(f"User info body: {userinfo_response.text}")
-
-        # Extract user information
+      
         user_info = userinfo_response.json()
         google_id = user_info["sub"]
         email = user_info["email"]
         name = user_info.get("name", "User")
         print(f"Google ID: {google_id}, Email: {email}, Name: {name}")
 
-        # Check or create user in the database
         user = UserModel.find_by_google_id(google_id)
         if not user:
             print("User not found in the database. Creating a new user.")
@@ -89,15 +83,46 @@ def callback():
         else:
             print("User found in the database.")
 
-        # Create a JWT
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
-        print(f"JWT Token: {token}")
+        print("are we not redirecting222?")
+        response = make_response(redirect("http://localhost:3000/"))
 
+        response.set_cookie(
+        "access_token_cookie",
+        token,
+        samesite="None",   
+        secure=True,          
+    )
+        return response
         return jsonify({"token": token, "message": "Login successful!"}), 200
 
     except Exception as e:
         print(f"Error during callback: {e}")
         return jsonify({"error": "Failed to process callback"}), 500
+    
+
+
+@auth_bp.route("/user-info", methods=["GET"])
+@jwt_required()  
+def user_info():
+# Log request headers
+    print("Request headers:", dict(request.headers))
+
+    # Log request cookies
+    print("Request cookies:", request.cookies)
+
+    try:
+        user_id = extract_user_id()
+
+        user = UserModel.find_by_google_id(user_id)
+
+        return jsonify({
+            "email": user.get("email"),
+            "name": user.get("name"),
+        }), 200
+    except Exception as e:
+        print(f"Error fetching user info: {e}")
+        return jsonify({"error": "Failed to fetch user info"}), 500
     
 @auth_bp.route("/authorize-calendar", methods=["GET"])
 def authorize_calendar():

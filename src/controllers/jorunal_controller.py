@@ -38,7 +38,7 @@ def create_journal_entry():
 
     try:
         request_ip = request.remote_addr
-        optional_date = data.get("date")  # Optional date parameter
+        optional_date = data.get("date") 
         entry_id = JournalService.create_journal_entry(user_id, data["entry"], request_ip, optional_date)
         return jsonify({"message": "Journal entry created successfully", "entry_id": entry_id}), 201
     except Exception as e:
@@ -148,7 +148,7 @@ def get_heatmap_data():
         return jsonify({"error": str(e)}), 500
 
 
-@journal_bp.route("/dashboard/sentiments", methods=["GET"])
+@journal_bp.route("/sentiments", methods=["GET"])
 @jwt_required()
 def get_dashboard_sentiments():
     """
@@ -166,7 +166,7 @@ def get_dashboard_sentiments():
         return jsonify({"error": str(e)}), 500
 
 
-@journal_bp.route("/keywords/top", methods=["GET"])
+@journal_bp.route("/keywords", methods=["GET"])
 @jwt_required()
 def get_top_keywords():
     """
@@ -179,5 +179,53 @@ def get_top_keywords():
     try:
         keywords = JournalService.get_top_keywords(user_id, top_n)
         return jsonify({"message": f"Top {top_n} keywords retrieved", "keywords": keywords}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+@journal_bp.route("/search/keyword", methods=["GET"])
+@jwt_required()
+def get_entries_by_keyword():
+    """
+    Retrieve journal entries by keyword for a specific user.
+
+    Endpoint: GET /api/journals/entries/keyword?keyword=<keyword>
+    :query_param keyword: The keyword to filter entries by.
+    :return: JSON response containing the matching journal entries.
+    """
+    user_id = extract_user_id()
+    keyword = request.args.get("keyword")
+
+    if not keyword:
+        return jsonify({"error": "Keyword parameter is required."}), 400
+
+    try:
+        entries = JournalService.get_entries_by_keyword(user_id, keyword)
+        return jsonify({"entries": entries}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+@journal_bp.route("/search/date", methods=["GET"])
+@jwt_required()
+def get_entries_by_month():
+    """
+    Retrieve journal entries for a specific month and year.
+
+    Endpoint: GET /api/journals/entries/month?year=<year>&month=<month>
+    :query_param year: The year to filter by.
+    :query_param month: The month to filter by.
+    :return: JSON response containing the journal entries for the given month and year.
+    """
+    user_id = extract_user_id()
+    year = request.args.get("year", type=int)
+    month = request.args.get("month", type=int)
+
+    if not year or not month:
+        return jsonify({"error": "Year and month parameters are required."}), 400
+
+    try:
+        entries = JournalService.get_entries_by_month(user_id, year, month)
+        return jsonify({"entries": entries}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
