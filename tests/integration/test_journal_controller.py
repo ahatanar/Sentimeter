@@ -44,7 +44,7 @@ class TestJournalRoutes(unittest.TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json['message'], 'Journal entry created successfully')
-        self.assertEqual(response.json['entry_id'], 'test-entry-id')
+        self.assertEqual(response.json['entry'], 'test-entry-id')
         mock_create_journal_entry.assert_called_once()
 
     @patch('src.services.journal_service.JournalService.get_all_journal_entries')
