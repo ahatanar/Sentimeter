@@ -24,36 +24,52 @@ def extract_user_id():
     return get_jwt_identity()["google_id"]
 @auth_bp.route("/login", methods=["GET"])
 def login():
+    """
+    Initiates the Google OAuth2.0 login process.
 
+    This endpoint retrieves the Google authorization endpoint and constructs
+    a login URI for redirecting the user to Google's login page.
+
+    Returns:
+        - 302 Redirect: Redirects the user to Google's authorization endpoint.
+        - 500 Error: Returns a JSON object with an error message if login initiation fails.
+    """
     try:
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-        print(f"Authorization endpoint: {authorization_endpoint}")
 
-        # Create the Google OAuth login URL
         request_uri = client.prepare_request_uri(
             authorization_endpoint,
             redirect_uri=url_for("auth.callback", _external=True),
             scope=["openid", "email", "profile"]
         )
-        print(f"Request URI: {request_uri}")
         return redirect(request_uri)
     except Exception as e:
         print(f"Error during login: {e}")
         return jsonify({"error": "Failed to initiate login"}), 500
 
-# Callback Endpoint
+
 @auth_bp.route("/callback", methods=["GET"])
 def callback():
+    """
+    Handles the callback from Google after user authentication.
+
+    This endpoint exchanges the authorization code for tokens, retrieves user
+    information from Google, creates a JWT token, and sets it in a secure cookie, with HTTP only access
+
+    Query Parameters:
+        - code: The authorization code received from Google.
+
+    Returns:
+        - 302 Redirect: Redirects to the frontend with an access token set in a cookie.
+        - 500 Error: Returns a JSON object with an error message if the callback process fails.
+    """
     try:
-        # Get the authorization code from Google
         code = request.args.get("code")
 
-        # Get Google's token endpoint
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
 
-        # Exchange the authorization code for tokens
         token_url, headers, body = client.prepare_token_request(
             token_endpoint,
             authorization_response=request.url,
@@ -61,59 +77,47 @@ def callback():
             client_secret=GOOGLE_CLIENT_SECRET
         )
         token_response = requests.post(token_url, headers=headers, data=body)
-     
 
         client.parse_request_body_response(token_response.text)
 
         userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
         uri, headers, body = client.add_token(userinfo_endpoint)
         userinfo_response = requests.get(uri, headers=headers, data=body)
-      
+
         user_info = userinfo_response.json()
         google_id = user_info["sub"]
         email = user_info["email"]
         name = user_info.get("name", "User")
-        print(f"Google ID: {google_id}, Email: {email}, Name: {name}")
 
         user = UserModel.find_by_google_id(google_id)
         if not user:
-            print("User not found in the database. Creating a new user.")
             UserModel.save(google_id, email, name)
-        else:
-            print("User found in the database.")
 
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
-        print("are we not redirecting222?")
-        response = make_response(redirect("http://localhost:3000/"))
+        response = make_response(redirect("https://sentimeter-frontend.vercel.app"))
+        response.set_cookie("access_token_cookie", token, samesite="None", secure=True, httponly=True)
 
-        response.set_cookie(
-        "access_token_cookie",
-        token,
-        samesite="None",   
-        secure=True,          
-    )
         return response
-        return jsonify({"token": token, "message": "Login successful!"}), 200
-
-
     except Exception as e:
         print(f"Error during callback: {e}")
         return jsonify({"error": "Failed to process callback"}), 500
-    
 
 
 @auth_bp.route("/user-info", methods=["GET"])
-@jwt_required()  
+@jwt_required()
 def user_info():
-# Log request headers
-    print("Request headers:", dict(request.headers))
+    """
+    Retrieves authenticated user information.
 
-    # Log request cookies
-    print("Request cookies:", request.cookies)
+    This endpoint fetches the user's email and name from the database based on
+    their Google ID, which is extracted from the JWT token.
 
+    Returns:
+        - 200 OK: A JSON object containing the user's email and name.
+        - 500 Error: A JSON object with an error message if fetching user info fails.
+    """
     try:
         user_id = extract_user_id()
-
         user = UserModel.find_by_google_id(user_id)
 
         return jsonify({

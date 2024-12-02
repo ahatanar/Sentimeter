@@ -44,7 +44,7 @@ def create_app():
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False  
     app.config["JWT_COOKIE_SAMESITE"] = "None"  
     app.config["JWT_COOKIE_SECURE"] = False  
-    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+    CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://sentimeter-frontend.vercel.app"])
 
 
     jwt = JWTManager(app)
