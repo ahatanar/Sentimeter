@@ -40,10 +40,15 @@ def create_app():
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "default_secret_key")
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default_jwt_secret")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]   
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False  
+    app.config["JWT_COOKIE_SAMESITE"] = "None"  
+    app.config["JWT_COOKIE_SECURE"] = False  
+    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
-    # Initialize extensions
-    JWTManager(app)
-    CORS(app)
+
+    jwt = JWTManager(app)
+    print("prope init")
 
     try:
         dynamodb = boto3.resource(
@@ -58,7 +63,6 @@ def create_app():
         print("Error connecting to DynamoDB:", e)
         sys.exit(1)
 
-    # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(journal_bp)
     return app
