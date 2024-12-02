@@ -12,7 +12,6 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
@@ -95,6 +94,7 @@ def callback():
     )
         return response
         return jsonify({"token": token, "message": "Login successful!"}), 200
+
 
     except Exception as e:
         print(f"Error during callback: {e}")
