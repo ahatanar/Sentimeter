@@ -13,7 +13,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
-
+REDIRECT_URI=os.getenv("REDIRECT_URI")
 
 def extract_user_id():
     """
@@ -94,7 +94,7 @@ def callback():
             UserModel.save(google_id, email, name)
 
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
-        response = make_response(redirect("https://sentimeter-frontend.vercel.app"))
+        response = make_response(redirect(REDIRECT_URI))
         response.set_cookie("access_token_cookie", token, samesite="None", secure=True, httponly=True)
 
         return response

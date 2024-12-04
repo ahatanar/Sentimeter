@@ -5,25 +5,30 @@ from src.services.weather_service import WeatherService
 
 class JournalService:
     @staticmethod
-    def create_journal_entry(user_id, entry, ip_address, optional_date=None):
+    def create_journal_entry(user_id, entry, ip_address, optional_date=None, location_data=None):
         """
         Create and save a new journal entry.
         :param user_id: ID of the user creating the entry.
         :param entry: Text of the journal entry.
         :param ip_address: IP address for location/weather lookup.
         :param optional_date: Optional timestamp for the journal entry (ISO format string).
+        :param location_data: Optional geolocation data (latitude and longitude).
         :return: Dictionary with saved entry details.
         """
-        location = WeatherService.get_location_from_ip(ip_address)
+        if location_data:
+            location = WeatherService.reverse_geocode(location_data['latitude'],location_data['longitude'])
+        else:
+            location = WeatherService.get_location_from_ip(ip_address) 
+        print(location)
         weather_data = WeatherService.get_weather_by_location(location)
         weather_description = TextAnalysisService.generate_weather_description(weather_data)
+
+
         sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
         key_words = TextAnalysisService.extract_keywords(entry)
 
         timestamp = (
-            datetime.fromisoformat(optional_date)
-            if optional_date else
-            datetime.now()
+            datetime.fromisoformat(optional_date) if optional_date else datetime.now()
         )
 
         journal_entry = JournalEntryModel(
@@ -35,8 +40,10 @@ class JournalService:
             keywords=key_words,
             location=location,
             weather=weather_description,
-            sentiment_score=sentiment_score
+            sentiment_score=sentiment_score,
         )
+
+        print("before save")
         saved_entry = journal_entry.save()
 
         return saved_entry.to_dict()

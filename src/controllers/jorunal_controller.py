@@ -14,6 +14,15 @@ def extract_user_id():
     return get_jwt_identity()["google_id"]
 
 
+def get_client_ip():
+    """
+    Get the real client IP address from the 'X-Forwarded-For' header.
+    """
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        # X-Forwarded-For can have multiple IPs, separated by commas; take the first one
+        return x_forwarded_for.split(",")[0].strip()
+    return request.remote_addr
 @journal_bp.route("", methods=["POST"])
 @jwt_required()
 def create_journal_entry():
@@ -25,7 +34,11 @@ def create_journal_entry():
     Request Body:
     {
         "entry": "Your journal entry text",
-        "date": "Optional date in ISO format (e.g., 2024-11-30T14:30:00)"
+        "date": "Optional date in ISO format (e.g., 2024-11-30T14:30:00)",
+        "location": {
+            "latitude": 40.7128,
+            "longitude": -74.0060
+        }  # Optional
     }
     
     :return: JSON response with a success message and the `entry_id` if created successfully.
@@ -37,10 +50,16 @@ def create_journal_entry():
         return jsonify({"error": "Entry content is required"}), 400
 
     try:
-        request_ip = request.remote_addr
-        optional_date = data.get("date") 
-        entry= JournalService.create_journal_entry(user_id, data["entry"], request_ip, optional_date)
-        return jsonify({"message": "Journal entry created successfully", "entry":entry}), 201
+        client_ip = get_client_ip()  
+        location_data = data.get("location")  
+        optional_date = data.get("date")
+        print(location_data)
+        print(data)
+        print(client_ip)
+        entry = JournalService.create_journal_entry(
+            user_id, data["entry"], client_ip, optional_date, location_data
+        )
+        return jsonify({"message": "Journal entry created successfully", "entry": entry}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

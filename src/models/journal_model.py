@@ -38,25 +38,28 @@ class JournalEntryModel:
         :return: The current instance of JournalEntryModel.
         """
         try:
+           
+            item = {
+                "user_id": self.user_id,
+                "timestamp": self.timestamp,
+                "entry_id": self.entry_id,
+                "entry": self.entry,
+                "sentiment": self.sentiment,
+                "emotions": self.emotions,
+                "keywords": self.keywords,
+                "weather": self.weather,
+                "location": self.location,
+                "sentiment_score": self.sentiment_score,
+            }
+
+            
 
             journals_table = get_table(self.TABLE_NAME)
-            journals_table.put_item(
-                Item={
-                    "user_id": self.user_id,
-                    "timestamp": self.timestamp,
-                    "entry_id": self.entry_id,
-                    "entry": self.entry,
-                    "sentiment": self.sentiment,
-                    "emotions": self.emotions,
-                    "keywords":self.keywords,
-                    "weather":self.weather,
-                    "location":self.location,
-                    "sentiment_score":self.sentiment_score,
+            journals_table.put_item(Item=item)
 
-                }
-            )
             print(f"[DEBUG] Successfully saved journal entry: {self.entry_id}")
             return self
+
         except Exception as e:
             print(f"[ERROR] Failed to save journal entry: {e}")
             raise

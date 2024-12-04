@@ -43,20 +43,15 @@ class TextAnalysisService:
         :return: List of extracted keywords.
         """
 
-        print("loaded model")
         keywords = kw_model.extract_keywords(
             text,
             keyphrase_ngram_range=(1, 1),  
             stop_words='english',        
             top_n=top_n                  
         )
-        print("didnt return")
         print(keywords)
         return [kw[0] for kw in keywords]  
         
-
-
-
 
     def generate_weather_description(weather_data):
         """
@@ -66,7 +61,6 @@ class TextAnalysisService:
         :return: AI-generated weather description as a string.
         """
     
-        print("error in promp defining")
         prompt = (
         f"The weather details are as follows:\n"
         f"- Temperature: {weather_data.get('temperature', 'N/A')}°C\n"
@@ -77,7 +71,6 @@ class TextAnalysisService:
         )
 
         try:
-            print("did response even work?")
             response = client.chat.completions.create(
             model="gpt-4o-2024-08-06", 
             messages=[
