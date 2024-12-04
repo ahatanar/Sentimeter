@@ -63,3 +63,9 @@ Located in the `Sentimeter` folder, this component includes:
 ### Dashboard
 ![Dashboard](Assets/Dashboard.png)
 
+### Functional Diagram
+![Functional Diagram](Assets/functional%20diagram1.png)
+
+### System Architecture
+![System Architecture](Assets/System%20architecture.png)
+
