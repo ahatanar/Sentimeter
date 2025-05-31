@@ -87,9 +87,7 @@ class TextAnalysisService:
             temperature=0.5,  
         )
 
-            print(response)
             weather_description = response.choices[0].message.content.strip()
-            print(weather_description)
             return weather_description
         except Exception as e:
             print(f"[ERROR] OpenAI API call failed: {e}")

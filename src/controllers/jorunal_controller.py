@@ -53,9 +53,6 @@ def create_journal_entry():
         client_ip = get_client_ip()  
         location_data = data.get("location")  
         optional_date = data.get("date")
-        print(location_data)
-        print(data)
-        print(client_ip)
         entry = JournalService.create_journal_entry(
             user_id, data["entry"], client_ip, optional_date, location_data
         )

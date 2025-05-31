@@ -14,6 +14,7 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 REDIRECT_URI=os.getenv("REDIRECT_URI")
+FRONTEND_REDIRECT_URI = os.getenv("FRONTEND_REDIRECT_URI")
 
 def extract_user_id():
     """
@@ -34,6 +35,10 @@ def login():
         - 302 Redirect: Redirects the user to Google's authorization endpoint.
         - 500 Error: Returns a JSON object with an error message if login initiation fails.
     """
+
+
+    print("GOOGLE_CLIENT_ID:", GOOGLE_CLIENT_ID, flush=True)
+    print("Redirect URI:", url_for("auth.callback", _external=True), flush=True)
     try:
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
@@ -51,55 +56,70 @@ def login():
 
 @auth_bp.route("/callback", methods=["GET"])
 def callback():
-    """
-    Handles the callback from Google after user authentication.
-
-    This endpoint exchanges the authorization code for tokens, retrieves user
-    information from Google, creates a JWT token, and sets it in a secure cookie, with HTTP only access
-
-    Query Parameters:
-        - code: The authorization code received from Google.
-
-    Returns:
-        - 302 Redirect: Redirects to the frontend with an access token set in a cookie.
-        - 500 Error: Returns a JSON object with an error message if the callback process fails.
-    """
     try:
-        code = request.args.get("code")
+        print("Entering callback function", flush=True)
 
+        # Get the authorization code from the request
+        code = request.args.get("code")
+        if not code:
+            print("No code provided in callback", flush=True)
+            return jsonify({"error": "Missing code parameter in callback"}), 400
+
+        print(f"Received authorization code: {code[:10]}...", flush=True)  # Print first 10 chars for security
+
+        # Get Google's token endpoint
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
 
+        # Prepare the token request
         token_url, headers, body = client.prepare_token_request(
             token_endpoint,
             authorization_response=request.url,
-            redirect_url=url_for("auth.callback", _external=True),
+            redirect_url=os.getenv("REDIRECT_URI"),  
             client_secret=GOOGLE_CLIENT_SECRET
         )
+
+
+        print("Requesting token from Google", flush=True)
         token_response = requests.post(token_url, headers=headers, data=body)
 
+        if not token_response.ok:
+            print(f"Token response error: {token_response.text}", flush=True)
+            return jsonify({"error": "Failed to get token from Google"}), 500
+
+        # Parse the token response
         client.parse_request_body_response(token_response.text)
 
+        # Get user info
         userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
         uri, headers, body = client.add_token(userinfo_endpoint)
         userinfo_response = requests.get(uri, headers=headers, data=body)
+
+        if not userinfo_response.ok:
+            print(f"User info response error: {userinfo_response.text}", flush=True)
+            return jsonify({"error": "Failed to get user info from Google"}), 500
 
         user_info = userinfo_response.json()
         google_id = user_info["sub"]
         email = user_info["email"]
         name = user_info.get("name", "User")
 
+        # Save or update user
         user = UserModel.find_by_google_id(google_id)
         if not user:
             UserModel.save(google_id, email, name)
 
+        # Create JWT token
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
-        response = make_response(redirect(REDIRECT_URI))
-        response.set_cookie("access_token_cookie", token, samesite="None", secure=True, httponly=True)
+        print("Generated JWT token and redirecting to frontend", flush=True)
 
+        # Create response with cookie
+        response = make_response(redirect(FRONTEND_REDIRECT_URI))
+        response.set_cookie("access_token_cookie", token, samesite="None", secure=True, httponly=True)
         return response
+
     except Exception as e:
-        print(f"Error during callback: {e}")
+        print(f"Error during callback: {str(e)}", flush=True)
         return jsonify({"error": "Failed to process callback"}), 500
 
 

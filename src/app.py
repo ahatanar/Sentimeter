@@ -9,6 +9,10 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from src.controllers.auth_controller import auth_bp
 from src.controllers.jorunal_controller import journal_bp
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Initialize SQLAlchemy
 # db = SQLAlchemy()
 
@@ -48,8 +52,6 @@ def create_app():
 
 
     jwt = JWTManager(app)
-    print("prope init")
-
     try:
         dynamodb = boto3.resource(
             "dynamodb",
@@ -68,8 +70,8 @@ def create_app():
     return app
 
 if __name__ == "__main__":
+    print("APP STARTING", flush=True)
     app = create_app()
+    app.run(debug=True, use_reloader=False)
 
-  
 
-    app.run(debug=True)

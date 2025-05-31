@@ -80,7 +80,6 @@ class JournalEntryModel:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.get_item(Key={"user_id": user_id, "timestamp": timestamp})
             entry = response.get("Item")
-            print(f"[DEBUG] Retrieved journal entry: {entry}")
             return entry
         except Exception as e:
             print(f"[ERROR] Failed to retrieve journal entry: {e}")
@@ -93,7 +92,6 @@ class JournalEntryModel:
         :param user_id: The user's ID.
         :return: A list of journal entries.
         """
-        print("user_id:", user_id)
         try:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.query(
@@ -101,7 +99,6 @@ class JournalEntryModel:
 
             )
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved all journal entries for user {user_id}: {entries}")
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve all journal entries: {e}")
@@ -131,7 +128,6 @@ class JournalEntryModel:
             journals_table.delete_item(
                 Key={"user_id": user_id, "timestamp": timestamp}
             )
-            print(f"[DEBUG] Deleted journal entry with entry_id: {entry_id}")
             return True
 
         except Exception as e:
@@ -151,7 +147,6 @@ class JournalEntryModel:
                 FilterExpression=Attr("user_id").eq(user_id) & Attr("keywords").contains(keyword)
             )
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved entries with keyword '{keyword}' for user {user_id}: {entries}")
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries by keyword '{keyword}': {e}")
@@ -177,7 +172,6 @@ class JournalEntryModel:
             keyword_counts = Counter(all_keywords)
 
             top_keywords = keyword_counts.most_common(top_n)
-            print(f"[DEBUG] Top {top_n} keywords for user {user_id}: {top_keywords}")
             return top_keywords
         except Exception as e:
             print(f"[ERROR] Failed to retrieve top keywords for user {user_id}: {e}")
@@ -198,7 +192,6 @@ class JournalEntryModel:
                 Limit=12
             )
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved last 12 entries for user {user_id}: {entries}")
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve recent entries: {e}")
@@ -221,7 +214,6 @@ class JournalEntryModel:
                                 Attr("timestamp").begins_with(prefix)
             )
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved entries for {year}-{month} for user {user_id}: {entries}")
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries for {year}-{month}: {e}")
@@ -245,7 +237,6 @@ class JournalEntryModel:
             )
 
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved {len(entries)} entries for user {user_id} in the last 365 days.")
 
             date_counts = Counter(entry["timestamp"][:10] for entry in entries)  
 
@@ -274,7 +265,6 @@ class JournalEntryModel:
             start_date_str = start_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
             end_date_str = end_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
-            print(f"[DEBUG] Querying entries for user_id={user_id} between {start_date_str} and {end_date_str}")
 
             response = journals_table.scan(
                 FilterExpression=Attr("user_id").eq(user_id) &
@@ -282,7 +272,6 @@ class JournalEntryModel:
             )
             
             entries = response.get("Items", [])
-            print(f"[DEBUG] Retrieved {len(entries)} entries for user_id={user_id} between {start_date_str} and {end_date_str}")
             
             return entries
         except Exception as e:
@@ -319,7 +308,6 @@ class JournalEntryModel:
                 "average_sentiment": averages.get(day.strftime('%Y-%m-%d'), 0)
             })
         
-        print(week_data)
         return week_data
 
     @classmethod
@@ -357,7 +345,6 @@ class JournalEntryModel:
         labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
         week_data = [{"week_label": label, "average_sentiment": averages.get(label, 0)} for label in labels]
         
-        print(week_data)
         return week_data
 
     @classmethod
@@ -395,5 +382,4 @@ class JournalEntryModel:
             for month, avg in sorted(averages.items(), key=lambda x: datetime.strptime(x[0], "%Y-%m"))
         ]
         
-        print(month_data)
         return month_data

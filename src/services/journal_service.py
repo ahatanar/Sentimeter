@@ -19,7 +19,6 @@ class JournalService:
             location = WeatherService.reverse_geocode(location_data['latitude'],location_data['longitude'])
         else:
             location = WeatherService.get_location_from_ip(ip_address) 
-        print(location)
         weather_data = WeatherService.get_weather_by_location(location)
         weather_description = TextAnalysisService.generate_weather_description(weather_data)
 
@@ -43,7 +42,6 @@ class JournalService:
             sentiment_score=sentiment_score,
         )
 
-        print("before save")
         saved_entry = journal_entry.save()
 
         return saved_entry.to_dict()

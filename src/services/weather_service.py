@@ -53,7 +53,6 @@ class WeatherService:
         :param ip_address: The IP address of the user.
         :return: Location details (e.g., city, region, country).
         """
-        print(ip_address)
         try:
             response = requests.get(f"http://ip-api.com/json/{ip_address}")
             response.raise_for_status()
@@ -66,7 +65,6 @@ class WeatherService:
                 "longitude": str(data.get("lon","unknown"))
             }
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch location: {e}")
             return {"city": "Unknown", "region": "Unknown", "country": "Unknown"}
     @staticmethod
     def reverse_geocode(lat, lon):
@@ -102,7 +100,6 @@ class WeatherService:
                     "longitude": str(lon)
                 }
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch reverse geocoding data: {e}")
             return {
                 "city": "Unknown",
                 "region": "Unknown",
