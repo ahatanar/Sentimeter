@@ -1,4 +1,4 @@
-from src.database import get_table
+from database import get_table
 
 class UserModel:
     TABLE_NAME = "users"

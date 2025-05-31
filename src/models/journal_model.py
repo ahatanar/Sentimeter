@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from src.database import get_table
+from database import get_table
 import boto3
 from boto3.dynamodb.conditions import Key
 from collections import Counter
@@ -57,7 +57,6 @@ class JournalEntryModel:
             journals_table = get_table(self.TABLE_NAME)
             journals_table.put_item(Item=item)
 
-            print(f"[DEBUG] Successfully saved journal entry: {self.entry_id}")
             return self
 
         except Exception as e:

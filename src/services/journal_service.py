@@ -1,7 +1,7 @@
 from datetime import datetime
-from src.models.journal_model import JournalEntryModel
-from src.services.text_service import TextAnalysisService
-from src.services.weather_service import WeatherService
+from models.journal_model import JournalEntryModel
+from services.text_service import TextAnalysisService
+from services.weather_service import WeatherService
 
 class JournalService:
     @staticmethod
