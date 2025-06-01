@@ -92,3 +92,16 @@ class TextAnalysisService:
         except Exception as e:
             print(f"[ERROR] OpenAI API call failed: {e}")
             return "Description not available."
+
+
+
+    def generate_openai_embedding(text):
+        try:
+            response = openai.embeddings.create(
+                input=text,
+                model="text-embedding-3-small"
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"[EmbeddingService] Failed to embed text: {e}")
+            return None

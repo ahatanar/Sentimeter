@@ -29,6 +29,7 @@ class JournalService:
         timestamp = (
             datetime.fromisoformat(optional_date) if optional_date else datetime.now()
         )
+        embedding_vector = TextAnalysisService.generate_openai_embedding(entry)
 
         journal_entry = JournalEntryModel(
             user_id=user_id,
@@ -40,6 +41,7 @@ class JournalService:
             location=location,
             weather=weather_description,
             sentiment_score=sentiment_score,
+            embedding=embedding_vector,
         )
 
         saved_entry = journal_entry.save()

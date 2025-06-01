@@ -1,29 +1,24 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from collections import Counter, defaultdict
 from database import get_table
-import boto3
-from boto3.dynamodb.conditions import Key
-from collections import Counter
 from boto3.dynamodb.conditions import Key, Attr
-from datetime import datetime, timedelta
-from collections import defaultdict
-from collections import OrderedDict
+from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 
 class JournalEntryModel:
     TABLE_NAME = "journals"
 
-    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None,keywords=None,weather=None,location=None,sentiment_score=None):
-        """
-        Initialize a new journal entry model.
-        :param user_id: ID of the user creating the entry.
-        :param entry: The journal entry text.
-        :param sentiment: The sentiment of the entry (optional).
-        :param emotions: The emotions data of the entry (optional).
-        :param timestamp: The timestamp of the entry (optional, defaults to now).
-        """
+    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None, keywords=None,
+                 weather=None, location=None, sentiment_score=None, embedding=None):
         self.user_id = user_id
-        self.timestamp = timestamp or datetime.now().isoformat()
+        if timestamp:
+            dt = datetime.fromisoformat(timestamp)
+            dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            self.timestamp = dt.astimezone(timezone.utc).isoformat()
+        else:
+            self.timestamp = datetime.now(timezone.utc).isoformat()
+
         self.entry_id = str(uuid.uuid4())
         self.entry = entry
         self.sentiment = sentiment
@@ -32,13 +27,10 @@ class JournalEntryModel:
         self.weather = weather
         self.location = location
         self.sentiment_score = str(sentiment_score)
+        self.embedding = embedding
+
     def save(self):
-        """
-        Save the journal entry to DynamoDB and return the entry instance.
-        :return: The current instance of JournalEntryModel.
-        """
         try:
-           
             item = {
                 "user_id": self.user_id,
                 "timestamp": self.timestamp,
@@ -51,172 +43,175 @@ class JournalEntryModel:
                 "location": self.location,
                 "sentiment_score": self.sentiment_score,
             }
-
-            
-
             journals_table = get_table(self.TABLE_NAME)
             journals_table.put_item(Item=item)
-
             return self
-
         except Exception as e:
             print(f"[ERROR] Failed to save journal entry: {e}")
             raise
+
     def to_dict(self):
-        """
-        Return all attributes of the model as a dictionary.
-        """
         return self.__dict__
+
     @classmethod
     def get_entry(cls, user_id, timestamp):
-        """
-        Retrieve a specific journal entry by user ID and timestamp.
-        :param user_id: The user's ID.
-        :param timestamp: The timestamp of the desired entry.
-        :return: The journal entry as a dictionary or None if not found.
-        """
         try:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.get_item(Key={"user_id": user_id, "timestamp": timestamp})
-            entry = response.get("Item")
-            return entry
+            return response.get("Item")
         except Exception as e:
             print(f"[ERROR] Failed to retrieve journal entry: {e}")
             raise
 
-    @classmethod
-    def get_all_entries(cls, user_id):
-        """
-        Retrieve all journal entries for a user.
-        :param user_id: The user's ID.
-        :return: A list of journal entries.
-        """
-        try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(
-            KeyConditionExpression=Key("user_id").eq(user_id)
-
-            )
-            entries = response.get("Items", [])
-            return entries
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve all journal entries: {e}")
-            raise
-
+   
     @classmethod
     def delete_entry(cls, entry_id):
-        """
-        Delete a journal entry using entry_id.
-        """
         try:
             journals_table = get_table(cls.TABLE_NAME)
-
             response = journals_table.query(
-                IndexName="entry_id-index",  
+                IndexName="entry_id-index",
                 KeyConditionExpression=Key("entry_id").eq(entry_id)
             )
-
             if not response["Items"]:
                 print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
                 return False
 
             item = response["Items"][0]
-            user_id = item["user_id"]
-            timestamp = item["timestamp"]
-
-            journals_table.delete_item(
-                Key={"user_id": user_id, "timestamp": timestamp}
-            )
+            journals_table.delete_item(Key={"user_id": item["user_id"], "timestamp": item["timestamp"]})
             return True
-
         except Exception as e:
             print(f"[ERROR] Failed to delete journal entry: {e}")
             raise
+
+  
+
+    @classmethod
+    def get_entries_by_month(cls, user_id, year, month):
+        try:
+            journals_table = get_table(cls.TABLE_NAME)
+
+            start_date = datetime(int(year), int(month), 1, tzinfo=timezone.utc)
+            end_day = monthrange(int(year), int(month))[1]
+            end_date = datetime(int(year), int(month), end_day, 23, 59, 59, tzinfo=timezone.utc)
+
+            start_iso = start_date.isoformat()
+            end_iso = end_date.isoformat()
+
+            print(f"📅 Querying from {start_iso} to {end_iso} for user {user_id}")
+
+            entries = []
+            scan_kwargs = {
+                "FilterExpression": Attr("user_id").eq(user_id) & Attr("timestamp").between(start_iso, end_iso)
+            }
+
+            while True:
+                response = journals_table.scan(**scan_kwargs)
+                items = response.get("Items", [])
+                entries.extend(items)
+
+                if "LastEvaluatedKey" not in response:
+                    break
+                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+
+            print(f"✅ Found {len(entries)} entries for {year}-{month}")
+            return entries
+
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve entries for {year}-{month}: {e}")
+            raise
+
+    @classmethod
+    def get_all_entries(cls, user_id, limit=None, specific_attributes=None):
+        """
+        Optimized version: Retrieve all journal entries for a user using pagination.
+        
+        :param user_id: The user's ID.
+        :param limit: Optional limit on total number of entries to return
+        :param specific_attributes: List of specific attributes to fetch (e.g., ['timestamp', 'content', 'sentiment_score'])
+        :return: A list of all journal entries.
+        """
+        try:
+            table = get_table(cls.TABLE_NAME)
+            entries = []
+            
+            query_kwargs = {
+                "KeyConditionExpression": Key("user_id").eq(user_id)
+            }
+            
+            # Optimization 1: Only fetch specific attributes if provided
+            if specific_attributes:
+                query_kwargs["ProjectionExpression"] = ", ".join(specific_attributes)
+            
+            # Optimization 2: Set page size for better performance
+            # DynamoDB has a 1MB limit per query, so we set a reasonable page size
+            query_kwargs["Limit"] = 100  # Adjust based on your average item size
+            
+            total_fetched = 0
+            
+            while True:
+                response = table.query(**query_kwargs)
+                items = response.get("Items", [])
+                entries.extend(items)
+                
+                total_fetched += len(items)
+                
+                # Optimization 3: Respect the limit parameter
+                if limit and total_fetched >= limit:
+                    entries = entries[:limit]  # Trim to exact limit
+                    break
+                    
+                if "LastEvaluatedKey" not in response:
+                    break
+                    
+                query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+
+            print(f"✅ Retrieved {len(entries)} entries for user {user_id}")
+            return entries
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve all journal entries: {e}")
+            raise
+
+
+    @classmethod
+    def get_recent_entries(cls, user_id):
+        try:
+            journals_table = get_table(cls.TABLE_NAME)
+            response = journals_table.query(
+                KeyConditionExpression=Key("user_id").eq(user_id),
+                ScanIndexForward=False,
+                Limit=12
+            )
+            return response.get("Items", [])
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve recent entries: {e}")
+            raise
+
+
     @classmethod
     def get_entries_by_keyword(cls, user_id, keyword):
-        """
-        Retrieve all journal entries for a user that contain a specific keyword.
-        :param user_id: The user's ID.
-        :param keyword: The keyword to filter by.
-        :return: A list of journal entries matching the keyword.
-        """
         try:
             journals_table = get_table(cls.TABLE_NAME)
             response = journals_table.scan(
                 FilterExpression=Attr("user_id").eq(user_id) & Attr("keywords").contains(keyword)
             )
-            entries = response.get("Items", [])
-            return entries
+            return response.get("Items", [])
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries by keyword '{keyword}': {e}")
             raise
 
     @classmethod
     def get_top_keywords(cls, user_id, top_n=10):
-        """
-        Retrieve the top N most common keywords across all entries for a user.
-        :param user_id: The user's ID.
-        :param top_n: The number of top keywords to return.
-        :return: A list of tuples [(keyword, count), ...].
-        """
         try:
             journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(
-                KeyConditionExpression=Key("user_id").eq(user_id)
-            )
+            response = journals_table.query(KeyConditionExpression=Key("user_id").eq(user_id))
             entries = response.get("Items", [])
-            
-            all_keywords = [keyword for entry in entries for keyword in entry.get("keywords", [])]
-
-            keyword_counts = Counter(all_keywords)
-
-            top_keywords = keyword_counts.most_common(top_n)
-            return top_keywords
+            all_keywords = [kw for e in entries for kw in e.get("keywords", [])]
+            return Counter(all_keywords).most_common(top_n)
         except Exception as e:
-            print(f"[ERROR] Failed to retrieve top keywords for user {user_id}: {e}")
+            print(f"[ERROR] Failed to retrieve top keywords: {e}")
             raise
 
-    @classmethod
-    def get_recent_entries(cls, user_id):
-        """
-        Retrieve the last 12 journal entries for a user.
-        :param user_id: The user's ID.
-        :return: A list of the 12 most recent journal entries.
-        """
-        try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(
-                KeyConditionExpression=Key("user_id").eq(user_id),
-                ScanIndexForward=False, 
-                Limit=12
-            )
-            entries = response.get("Items", [])
-            return entries
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve recent entries: {e}")
-            raise
-
-    @classmethod
-    def get_entries_by_month(cls, user_id, year, month):
-        """
-        Retrieve journal entries for a user filtered by a specific year and month.
-        :param user_id: The user's ID.
-        :param year: The year to filter by (e.g., 2024).
-        :param month: The month to filter by (e.g., 11 for November).
-        :return: A list of journal entries matching the criteria.
-        """
-        try:
-            journals_table = get_table(cls.TABLE_NAME)
-            prefix = f"{year}-{int(month):02}"
-            response = journals_table.scan(
-                FilterExpression=Attr("user_id").eq(user_id) &
-                                Attr("timestamp").begins_with(prefix)
-            )
-            entries = response.get("Items", [])
-            return entries
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve entries for {year}-{month}: {e}")
-            raise
     @classmethod
     def get_heatmap_data(cls, user_id):
         """
@@ -227,102 +222,98 @@ class JournalEntryModel:
         try:
             journals_table = get_table(cls.TABLE_NAME)
 
-            today = datetime.now()
+            today = datetime.now(timezone.utc)
             one_year_ago = today - timedelta(days=365)
-            date_filter = one_year_ago.strftime('%Y-%m-%d')
+            start_iso = one_year_ago.isoformat()
 
-            response = journals_table.scan(
-                FilterExpression=Key("user_id").eq(user_id) & Attr("timestamp").gte(date_filter)
-            )
+            entries = []
+            scan_kwargs = {
+                "FilterExpression": Attr("user_id").eq(user_id) & Attr("timestamp").gte(start_iso)
+            }
 
-            entries = response.get("Items", [])
+            while True:
+                response = journals_table.scan(**scan_kwargs)
+                items = response.get("Items", [])
+                entries.extend(items)
 
-            date_counts = Counter(entry["timestamp"][:10] for entry in entries)  
+                if "LastEvaluatedKey" not in response:
+                    break
+                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
+            # Count how many entries per date
+            date_counts = Counter(entry["timestamp"][:10] for entry in entries)
+
+            # Prepare heatmap structure (last 365 days)
             heatmap_data = {}
             for i in range(365):
                 date = (today - timedelta(days=i)).strftime('%Y-%m-%d')
                 heatmap_data[date] = date_counts.get(date, 0)
 
             return heatmap_data
+
         except Exception as e:
             print(f"[ERROR] Failed to retrieve heatmap data: {e}")
             raise
 
-
     @classmethod
     def get_sentiments_by_date(cls, user_id, start_date, end_date):
-        """
-        Retrieve entries filtered by a date range, including all timestamps within the end date.
-        """
         try:
-            journals_table = get_table(cls.TABLE_NAME)
+            table = get_table(cls.TABLE_NAME)
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
 
-            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-            end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+            entries = []
+            scan_kwargs = {
+                "FilterExpression": Attr("user_id").eq(user_id) &
+                                    Attr("timestamp").between(start_dt.isoformat(), end_dt.isoformat())
+            }
 
-            start_date_str = start_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-            end_date_str = end_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
+            while True:
+                response = table.scan(**scan_kwargs)
+                entries.extend(response.get("Items", []))
+                if "LastEvaluatedKey" not in response:
+                    break
+                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
-
-            response = journals_table.scan(
-                FilterExpression=Attr("user_id").eq(user_id) &
-                                Attr("timestamp").between(start_date_str, end_date_str)
-            )
-            
-            entries = response.get("Items", [])
-            
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries by date: {e}")
             raise
 
+
     @classmethod
     def get_last_week_sentiments(cls, user_id):
-        today = datetime.now()
+        today = datetime.now(timezone.utc)
         last_week = today - timedelta(days=6)
-        
-        raw_sentiments = cls.get_sentiments_by_date(
-            user_id,
-            last_week.strftime('%Y-%m-%d'),
-            today.strftime('%Y-%m-%d'),
-        )
-        
-        daily_sentiments = defaultdict(list)
-        for entry in raw_sentiments:
-            date = entry["timestamp"][:10]  
-            sentiment = float(entry["sentiment_score"])
-            daily_sentiments[date].append(sentiment)
-        
-        averages = {
-            date: sum(scores) / len(scores) for date, scores in daily_sentiments.items()
-        }
-        
-        week_data = []
-        for i in range(7):
-            day = last_week + timedelta(days=i)
-            formatted_day = day.strftime('%A')
-            week_data.append({
-                "day": formatted_day,
-                "average_sentiment": averages.get(day.strftime('%Y-%m-%d'), 0)
-            })
-        
-        return week_data
+        raw = cls.get_sentiments_by_date(user_id, last_week.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        grouped = defaultdict(list)
+        for e in raw:
+            day = e["timestamp"][:10]
+            grouped[day].append(float(e["sentiment_score"]))
+
+        return [
+            {
+                "day": (last_week + timedelta(days=i)).strftime('%A'),
+                "average_sentiment": sum(grouped.get((last_week + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
+                                    max(len(grouped.get((last_week + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
+            }
+            for i in range(7)
+        ]
 
     @classmethod
     def get_last_month_sentiments(cls, user_id):
-        today = datetime.now()
+        today = datetime.now(timezone.utc)
         last_month = today - timedelta(days=29)
-        
-        raw_sentiments = cls.get_sentiments_by_date(
-            user_id,
-            last_month.strftime('%Y-%m-%d'),
-            today.strftime('%Y-%m-%d'),
-        )
-        
-        weekly_sentiments = defaultdict(list)
-        for entry in raw_sentiments:
-            date = datetime.strptime(entry["timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+        raw = cls.get_sentiments_by_date(user_id, last_month.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        grouped = defaultdict(list)
+        for e in raw:
+            try:
+                date = datetime.fromisoformat(e["timestamp"])
+            except ValueError:
+                continue  # skip if malformed
+
             days_ago = (today - date).days
             if days_ago <= 6:
                 label = "This week"
@@ -334,51 +325,37 @@ class JournalEntryModel:
                 label = "3 weeks ago"
             else:
                 label = "4 weeks ago"
-            sentiment = float(entry["sentiment_score"])
-            weekly_sentiments[label].append(sentiment)
-        
-        averages = {
-            label: sum(scores) / len(scores) for label, scores in weekly_sentiments.items()
-        }
-        
+
+            grouped[label].append(float(e["sentiment_score"]))
+
         labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
-        week_data = [{"week_label": label, "average_sentiment": averages.get(label, 0)} for label in labels]
-        
-        return week_data
+        return [
+            {
+                "week_label": label,
+                "average_sentiment": sum(grouped[label]) / len(grouped[label]) if grouped[label] else 0
+            }
+            for label in labels
+        ]
+
 
     @classmethod
     def get_last_year_sentiments(cls, user_id):
-        today = datetime.now()
-        last_year = today - timedelta(days=364)
-        
-        raw_sentiments = cls.get_sentiments_by_date(
-            user_id,
-            last_year.strftime('%Y-%m-%d'),
-            today.strftime('%Y-%m-%d'),
-        )
-        
-        monthly_sentiments = defaultdict(list)
-        for entry in raw_sentiments:
-            month = entry["timestamp"][:7] 
-            sentiment = float(entry["sentiment_score"])
-            monthly_sentiments[month].append(sentiment)
-        
-        averages = {
-            month: sum(scores) / len(scores) for month, scores in monthly_sentiments.items()
-        }
-        
+        today = datetime.now(timezone.utc)
+        one_year_ago = today - timedelta(days=364)
+        raw = cls.get_sentiments_by_date(user_id, one_year_ago.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        grouped = defaultdict(list)
+        for e in raw:
+            key = e["timestamp"][:7]  # YYYY-MM
+            grouped[key].append(float(e["sentiment_score"]))
+
+        results = []
         for i in range(12):
-            month_date = (last_year + relativedelta(months=i))
-            month_key = month_date.strftime('%Y-%m') 
-            if month_key not in averages:
-                averages[month_key] = 0
-        
-        month_data = [
-            {
-                "month": datetime.strptime(month, "%Y-%m").strftime("Month of %B"),
+            key = (one_year_ago + relativedelta(months=i)).strftime('%Y-%m')
+            avg = sum(grouped.get(key, [])) / len(grouped.get(key, [])) if grouped.get(key) else 0
+            results.append({
+                "month": datetime.strptime(key, "%Y-%m").strftime("Month of %B"),
                 "average_sentiment": avg
-            }
-            for month, avg in sorted(averages.items(), key=lambda x: datetime.strptime(x[0], "%Y-%m"))
-        ]
-        
-        return month_data
+            })
+
+        return results
