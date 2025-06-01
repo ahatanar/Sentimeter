@@ -6,7 +6,7 @@ import openai
 from decimal import Decimal
 from dotenv import load_dotenv
 
-from database import get_table
+from src.database import get_table
 
 # Load environment variables and setup OpenAI
 load_dotenv()
@@ -25,41 +25,50 @@ def get_openai_embedding(text):
         return None
 
 def embed_existing_entries():
-    response = table.scan()
-    items = response.get("Items", [])
+    total_embedded = 0
+    last_evaluated_key = None
 
-    print(f"Embedding {len(items)} journal entries using OpenAI...")
+    while True:
+        scan_kwargs = {}
+        if last_evaluated_key:
+            scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
 
-    for item in items:
-        entry_id = item.get("entry_id")
-        user_id = item.get("user_id")
-        timestamp = item.get("timestamp")
-        text = item.get("entry", "")
+        response = table.scan(**scan_kwargs)
+        items = response.get("Items", [])
 
-        if not all([entry_id, user_id, timestamp, text]):
-            continue
+        for item in items:
+            entry_id = item.get("entry_id")
+            user_id = item.get("user_id")
+            timestamp = item.get("timestamp")
+            text = item.get("entry", "")
 
-        if "embedding" in item:
-            print(f"Skipping already-embedded: {entry_id}")
-            continue
+            if not all([entry_id, user_id, timestamp, text]):
+                continue
 
-        embedding = get_openai_embedding(text)
-        if embedding:
-            try:
-                embedding_decimal = [Decimal(str(x)) for x in embedding]
+            if "embedding" in item:
+                continue
 
-                table.update_item(
-                    Key={"user_id": user_id, "timestamp": timestamp},
-                    UpdateExpression="SET embedding = :vec",
-                    ExpressionAttributeValues={":vec": embedding_decimal}
-                )
-                print(f"Embedded: {entry_id}")
-                time.sleep(0.2)  
+            embedding = get_openai_embedding(text)
+            if embedding:
+                try:
+                    embedding_decimal = [Decimal(str(x)) for x in embedding]
+                    table.update_item(
+                        Key={"user_id": user_id, "timestamp": timestamp},
+                        UpdateExpression="SET embedding = :vec",
+                        ExpressionAttributeValues={":vec": embedding_decimal}
+                    )
+                    total_embedded += 1
+                    print(f"✅ Embedded: {entry_id}")
+                    time.sleep(0.2)
+                except Exception as e:
+                    print(f"❌ Failed to save embedding for {entry_id}: {e}")
 
-            except Exception as e:
-                print(f"Failed to save embedding for {entry_id}: {e}")
+        if "LastEvaluatedKey" not in response:
+            break
+        last_evaluated_key = response["LastEvaluatedKey"]
 
-    print("🎉 Done embedding all entries with OpenAI.")
+    print(f"\n🎉 Done. Total entries embedded: {total_embedded}")
+
 
 if __name__ == "__main__":
     embed_existing_entries()

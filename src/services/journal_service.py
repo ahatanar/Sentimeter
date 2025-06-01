@@ -137,3 +137,10 @@ class JournalService:
         Retrieve the top N most common keywords across all entries for a user.
         """
         return JournalEntryModel.get_top_keywords(user_id, top_n)
+
+    @staticmethod
+    def semantic_search_entries(user_id, query):
+        print("we enter service method for sure right?")
+        query_vector = TextAnalysisService.generate_openai_embedding(query)
+
+        return JournalEntryModel.get_entries_by_semantic_search(user_id, query_vector)

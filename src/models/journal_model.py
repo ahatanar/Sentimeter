@@ -5,6 +5,8 @@ from database import get_table
 from boto3.dynamodb.conditions import Key, Attr
 from calendar import monthrange
 from dateutil.relativedelta import relativedelta
+from services.text_service import TextAnalysisService
+
 
 class JournalEntryModel:
     TABLE_NAME = "journals"
@@ -359,3 +361,26 @@ class JournalEntryModel:
             })
 
         return results
+
+
+
+    @staticmethod
+    def get_entries_by_semantic_search(user_id, query_vector, top_k=5):
+     
+
+        entries = JournalEntryModel.get_all_entries(user_id)
+        def cosine_similarity(v1, v2):
+            dot = sum(a * b for a, b in zip(v1, v2))
+            norm1 = sum(a * a for a in v1) ** 0.5
+            norm2 = sum(b * b for b in v2) ** 0.5
+            return dot / (norm1 * norm2) if norm1 and norm2 else 0
+
+        scored = []
+        for e in entries:
+            if "embedding" in e:
+                embedding = [float(x) for x in e["embedding"]]
+                sim = cosine_similarity(query_vector, embedding)
+                scored.append((sim, e))
+
+        scored.sort(reverse=True, key=lambda x: x[0])
+        return [entry for _, entry in scored[:top_k]]

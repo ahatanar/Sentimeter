@@ -245,3 +245,19 @@ def get_entries_by_month():
         return jsonify({"entries": entries}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@journal_bp.route("/search/semantic", methods=["GET"])
+@jwt_required()
+def get_entries_by_semantic_search():
+    user_id = extract_user_id()
+    query = request.args.get("query")
+    
+    if not query:
+        return jsonify({"error": "Query parameter is required."}), 400
+
+    try:
+        entries = JournalService.semantic_search_entries(user_id, query)
+        return jsonify({"entries": entries}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
