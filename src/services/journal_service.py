@@ -1,5 +1,6 @@
 from datetime import datetime
-from models.journal_model import JournalEntryModel
+from src.models.journal_model import JournalEntryModel
+
 from services.text_service import TextAnalysisService
 from services.weather_service import WeatherService
 

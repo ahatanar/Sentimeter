@@ -1,122 +1,118 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
-from database import get_table
-from boto3.dynamodb.conditions import Key, Attr
 from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 from services.text_service import TextAnalysisService
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, and_, cast
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+import uuid
+from src.database import Base, db_session
+from sqlalchemy.sql.expression import desc
 
+from pgvector.sqlalchemy import Vector
 
-class JournalEntryModel:
-    TABLE_NAME = "journals"
+class JournalEntryModel(Base):
+    __tablename__ = "journals"
 
-    def __init__(self, user_id, entry, sentiment=None, emotions=None, timestamp=None, keywords=None,
-                 weather=None, location=None, sentiment_score=None, embedding=None):
-        self.user_id = user_id
-        if timestamp:
-            dt = datetime.fromisoformat(timestamp)
-            dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-            self.timestamp = dt.astimezone(timezone.utc).isoformat()
-        else:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+    entry_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    entry = Column(String, nullable=False)
+    sentiment = Column(String)
+    sentiment_score = Column(Float)
+    emotions = Column(JSON)
+    keywords = Column(ARRAY(String))
+    weather = Column(JSON)
+    location = Column(JSON)
+    embedding = Column(Vector(1536))
 
-        self.entry_id = str(uuid.uuid4())
-        self.entry = entry
-        self.sentiment = sentiment
-        self.emotions = emotions
-        self.keywords = keywords
-        self.weather = weather
-        self.location = location
-        self.sentiment_score = str(sentiment_score)
-        self.embedding = embedding
+    user = relationship("User", back_populates="entries", lazy="joined")
+
 
     def save(self):
         try:
-            item = {
-                "user_id": self.user_id,
-                "timestamp": self.timestamp,
-                "entry_id": self.entry_id,
-                "entry": self.entry,
-                "sentiment": self.sentiment,
-                "emotions": self.emotions,
-                "keywords": self.keywords,
-                "weather": self.weather,
-                "location": self.location,
-                "sentiment_score": self.sentiment_score,
-            }
-            journals_table = get_table(self.TABLE_NAME)
-            journals_table.put_item(Item=item)
+            db_session.add(self)
+            db_session.commit()
             return self
         except Exception as e:
+            db_session.rollback()
             print(f"[ERROR] Failed to save journal entry: {e}")
             raise
 
+    def delete(self):
+        try:
+            db_session.delete(self)
+            db_session.commit()
+        except Exception as e:
+            db_session.rollback()
+            print(f"[ERROR] Failed to delete journal entry: {e}")
+            raise
+
     def to_dict(self):
-        return self.__dict__
+        return {
+            "entry_id": str(self.entry_id),
+            "user_id": self.user_id,
+            "timestamp": self.timestamp.isoformat(),
+            "entry": self.entry,
+            "sentiment": self.sentiment,
+            "sentiment_score": self.sentiment_score,
+            "emotions": self.emotions,
+            "keywords": self.keywords,
+            "weather": self.weather,
+            "location": self.location
+        }
 
     @classmethod
     def get_entry(cls, user_id, timestamp):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.get_item(Key={"user_id": user_id, "timestamp": timestamp})
-            return response.get("Item")
+            return db_session.query(JournalEntryModel).filter_by(user_id=user_id, timestamp=timestamp).one()
+        except NoResultFound:
+            print(f"[DEBUG] No journal entry found for user {user_id} at {timestamp}")
+            return None
         except Exception as e:
             print(f"[ERROR] Failed to retrieve journal entry: {e}")
             raise
 
-   
     @classmethod
     def delete_entry(cls, entry_id):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(
-                IndexName="entry_id-index",
-                KeyConditionExpression=Key("entry_id").eq(entry_id)
-            )
-            if not response["Items"]:
-                print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
-                return False
-
-            item = response["Items"][0]
-            journals_table.delete_item(Key={"user_id": item["user_id"], "timestamp": item["timestamp"]})
+            entry = db_session.query(JournalEntryModel).filter_by(entry_id=entry_id).one()
+            db_session.delete(entry)
+            db_session.commit()
             return True
+        except NoResultFound:
+            print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
+            return False
         except Exception as e:
+            db_session.rollback()
             print(f"[ERROR] Failed to delete journal entry: {e}")
             raise
 
-  
-
     @classmethod
-    def get_entries_by_month(cls, user_id, year, month):
+    def get_entries_by_month(cls, user_id, year, month, specific_columns=None):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-
             start_date = datetime(int(year), int(month), 1, tzinfo=timezone.utc)
             end_day = monthrange(int(year), int(month))[1]
             end_date = datetime(int(year), int(month), end_day, 23, 59, 59, tzinfo=timezone.utc)
 
-            start_iso = start_date.isoformat()
-            end_iso = end_date.isoformat()
+            print(f"📅 Querying {user_id} from {start_date} to {end_date}")
 
-            print(f"📅 Querying from {start_iso} to {end_iso} for user {user_id}")
+            query = db_session.query(JournalEntryModel).filter(
+                and_(
+                    JournalEntryModel.user_id == user_id,
+                    JournalEntryModel.timestamp >= start_date,
+                    JournalEntryModel.timestamp <= end_date
+                )
+            )
 
-            entries = []
-            scan_kwargs = {
-                "FilterExpression": Attr("user_id").eq(user_id) & Attr("timestamp").between(start_iso, end_iso)
-            }
-
-            while True:
-                response = journals_table.scan(**scan_kwargs)
-                items = response.get("Items", [])
-                entries.extend(items)
-
-                if "LastEvaluatedKey" not in response:
-                    break
-                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-
-            print(f"✅ Found {len(entries)} entries for {year}-{month}")
-            return entries
+            results = query.all()
+            return [entry.to_dict() if not specific_columns else {
+                field: getattr(entry, field) for field in specific_columns
+            } for entry in results]
 
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries for {year}-{month}: {e}")
@@ -125,198 +121,146 @@ class JournalEntryModel:
     @classmethod
     def get_all_entries(cls, user_id, limit=None, specific_attributes=None):
         """
-        Optimized version: Retrieve all journal entries for a user using pagination.
-        
+        Retrieve all journal entries for a user using PostgreSQL with optional limit and selected attributes.
+
         :param user_id: The user's ID.
-        :param limit: Optional limit on total number of entries to return
-        :param specific_attributes: List of specific attributes to fetch (e.g., ['timestamp', 'content', 'sentiment_score'])
-        :return: A list of all journal entries.
+        :param limit: Optional max number of entries to return.
+        :param specific_attributes: Optional list of attribute names to return per entry.
+        :return: List of entries as dicts.
         """
         try:
-            table = get_table(cls.TABLE_NAME)
-            entries = []
-            
-            query_kwargs = {
-                "KeyConditionExpression": Key("user_id").eq(user_id)
-            }
-            
-            # Optimization 1: Only fetch specific attributes if provided
-            if specific_attributes:
-                query_kwargs["ProjectionExpression"] = ", ".join(specific_attributes)
-            
-            # Optimization 2: Set page size for better performance
-            # DynamoDB has a 1MB limit per query, so we set a reasonable page size
-            query_kwargs["Limit"] = 100  # Adjust based on your average item size
-            
-            total_fetched = 0
-            
-            while True:
-                response = table.query(**query_kwargs)
-                items = response.get("Items", [])
-                entries.extend(items)
-                
-                total_fetched += len(items)
-                
-                # Optimization 3: Respect the limit parameter
-                if limit and total_fetched >= limit:
-                    entries = entries[:limit]  # Trim to exact limit
-                    break
-                    
-                if "LastEvaluatedKey" not in response:
-                    break
-                    
-                query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            query = db_session.query(JournalEntryModel).filter(
+                JournalEntryModel.user_id == user_id
+            ).order_by(JournalEntryModel.timestamp.desc())
 
-            print(f"✅ Retrieved {len(entries)} entries for user {user_id}")
-            return entries
-            
+            if limit:
+                query = query.limit(limit)
+
+            entries = query.all()
+
+            if specific_attributes:
+                return [
+                    {field: getattr(entry, field) for field in specific_attributes}
+                    for entry in entries
+                ]
+            else:
+                return [entry.to_dict() for entry in entries]
+
         except Exception as e:
-            print(f"[ERROR] Failed to retrieve all journal entries: {e}")
+            print(f"[ERROR] Failed to retrieve entries for user {user_id}: {e}")
             raise
 
-
-    @classmethod
-    def get_recent_entries(cls, user_id):
+    @staticmethod
+    def get_recent_entries(user_id, limit=12):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(
-                KeyConditionExpression=Key("user_id").eq(user_id),
-                ScanIndexForward=False,
-                Limit=12
-            )
-            return response.get("Items", [])
+            return [entry.to_dict() for entry in db_session.query(JournalEntryModel)
+            .filter_by(user_id=user_id)
+            .order_by(desc(JournalEntryModel.timestamp))
+            .limit(limit)
+            .all()]
         except Exception as e:
             print(f"[ERROR] Failed to retrieve recent entries: {e}")
             raise
 
-
-    @classmethod
-    def get_entries_by_keyword(cls, user_id, keyword):
+    @staticmethod
+    def get_entries_by_keyword(user_id, keyword):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.scan(
-                FilterExpression=Attr("user_id").eq(user_id) & Attr("keywords").contains(keyword)
-            )
-            return response.get("Items", [])
+            return [entry.to_dict() for entry in db_session.query(JournalEntryModel)
+            .filter(JournalEntryModel.user_id == user_id)
+            .filter(JournalEntryModel.keywords.any(keyword))
+            .all()]
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries by keyword '{keyword}': {e}")
             raise
 
-    @classmethod
-    def get_top_keywords(cls, user_id, top_n=10):
+    def get_top_keywords(user_id, top_n=10):
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-            response = journals_table.query(KeyConditionExpression=Key("user_id").eq(user_id))
-            entries = response.get("Items", [])
-            all_keywords = [kw for e in entries for kw in e.get("keywords", [])]
+            entries = db_session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
+            all_keywords = [kw for entry in entries if entry.keywords for kw in entry.keywords]
             return Counter(all_keywords).most_common(top_n)
         except Exception as e:
             print(f"[ERROR] Failed to retrieve top keywords: {e}")
             raise
 
-    @classmethod
-    def get_heatmap_data(cls, user_id):
+    @staticmethod
+    def get_heatmap_data(user_id):
         """
         Retrieve heatmap data for the last 365 days, grouped by date.
         :param user_id: The user's ID.
         :return: A dictionary with dates as keys and entry counts as values.
         """
         try:
-            journals_table = get_table(cls.TABLE_NAME)
-
             today = datetime.now(timezone.utc)
             one_year_ago = today - timedelta(days=365)
-            start_iso = one_year_ago.isoformat()
 
-            entries = []
-            scan_kwargs = {
-                "FilterExpression": Attr("user_id").eq(user_id) & Attr("timestamp").gte(start_iso)
+            entries = db_session.query(JournalEntryModel.timestamp) \
+                .filter(JournalEntryModel.user_id == user_id) \
+                .filter(JournalEntryModel.timestamp >= one_year_ago) \
+                .all()
+
+            # Count entries per date
+            date_counts = Counter(entry.timestamp.date().isoformat() for entry in entries)
+
+            # Generate full 365-day heatmap
+            heatmap_data = {
+                (today - timedelta(days=i)).strftime('%Y-%m-%d'): date_counts.get(
+                    (today - timedelta(days=i)).strftime('%Y-%m-%d'), 0)
+                for i in range(365)
             }
 
-            while True:
-                response = journals_table.scan(**scan_kwargs)
-                items = response.get("Items", [])
-                entries.extend(items)
-
-                if "LastEvaluatedKey" not in response:
-                    break
-                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-
-            # Count how many entries per date
-            date_counts = Counter(entry["timestamp"][:10] for entry in entries)
-
-            # Prepare heatmap structure (last 365 days)
-            heatmap_data = {}
-            for i in range(365):
-                date = (today - timedelta(days=i)).strftime('%Y-%m-%d')
-                heatmap_data[date] = date_counts.get(date, 0)
-
             return heatmap_data
-
         except Exception as e:
             print(f"[ERROR] Failed to retrieve heatmap data: {e}")
             raise
 
-    @classmethod
-    def get_sentiments_by_date(cls, user_id, start_date, end_date):
+    @staticmethod
+    def get_sentiments_by_date(user_id, start_date, end_date):
+        """
+        Returns list of entries (with timestamp and sentiment_score) for a user between two dates (inclusive).
+        """
         try:
-            table = get_table(cls.TABLE_NAME)
             start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
 
-            entries = []
-            scan_kwargs = {
-                "FilterExpression": Attr("user_id").eq(user_id) &
-                                    Attr("timestamp").between(start_dt.isoformat(), end_dt.isoformat())
-            }
+            entries = db_session.query(JournalEntryModel.timestamp, JournalEntryModel.sentiment_score) \
+                .filter(JournalEntryModel.user_id == user_id) \
+                .filter(JournalEntryModel.timestamp >= start_dt) \
+                .filter(JournalEntryModel.timestamp < end_dt) \
+                .all()
 
-            while True:
-                response = table.scan(**scan_kwargs)
-                entries.extend(response.get("Items", []))
-                if "LastEvaluatedKey" not in response:
-                    break
-                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-
-            return entries
+            return [{"timestamp": e.timestamp, "sentiment_score": e.sentiment_score} for e in entries]
         except Exception as e:
             print(f"[ERROR] Failed to retrieve entries by date: {e}")
             raise
 
-
-    @classmethod
-    def get_last_week_sentiments(cls, user_id):
+    @staticmethod
+    def get_last_week_sentiments(user_id):
         today = datetime.now(timezone.utc)
-        last_week = today - timedelta(days=6)
-        raw = cls.get_sentiments_by_date(user_id, last_week.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        start = today - timedelta(days=6)
+        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
 
         grouped = defaultdict(list)
         for e in raw:
-            day = e["timestamp"][:10]
-            grouped[day].append(float(e["sentiment_score"]))
+            grouped[e["timestamp"].date().isoformat()].append(e["sentiment_score"])
 
         return [
             {
-                "day": (last_week + timedelta(days=i)).strftime('%A'),
-                "average_sentiment": sum(grouped.get((last_week + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
-                                    max(len(grouped.get((last_week + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
+                "day": (start + timedelta(days=i)).strftime('%A'),
+                "average_sentiment": sum(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
+                                     max(len(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
             }
             for i in range(7)
         ]
 
-    @classmethod
-    def get_last_month_sentiments(cls, user_id):
+    @staticmethod
+    def get_last_month_sentiments(user_id):
         today = datetime.now(timezone.utc)
-        last_month = today - timedelta(days=29)
-        raw = cls.get_sentiments_by_date(user_id, last_month.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        start = today - timedelta(days=29)
+        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
 
         grouped = defaultdict(list)
         for e in raw:
-            try:
-                date = datetime.fromisoformat(e["timestamp"])
-            except ValueError:
-                continue  # skip if malformed
-
-            days_ago = (today - date).days
+            days_ago = (today - e["timestamp"]).days
             if days_ago <= 6:
                 label = "This week"
             elif days_ago <= 13:
@@ -327,8 +271,7 @@ class JournalEntryModel:
                 label = "3 weeks ago"
             else:
                 label = "4 weeks ago"
-
-            grouped[label].append(float(e["sentiment_score"]))
+            grouped[label].append(e["sentiment_score"])
 
         labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
         return [
@@ -339,22 +282,21 @@ class JournalEntryModel:
             for label in labels
         ]
 
-
-    @classmethod
-    def get_last_year_sentiments(cls, user_id):
+    @staticmethod
+    def get_last_year_sentiments(user_id):
         today = datetime.now(timezone.utc)
-        one_year_ago = today - timedelta(days=364)
-        raw = cls.get_sentiments_by_date(user_id, one_year_ago.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+        start = today - timedelta(days=364)
+        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
 
         grouped = defaultdict(list)
         for e in raw:
-            key = e["timestamp"][:7]  # YYYY-MM
-            grouped[key].append(float(e["sentiment_score"]))
+            key = e["timestamp"].strftime("%Y-%m")  # e.g., '2025-06'
+            grouped[key].append(e["sentiment_score"])
 
         results = []
         for i in range(12):
-            key = (one_year_ago + relativedelta(months=i)).strftime('%Y-%m')
-            avg = sum(grouped.get(key, [])) / len(grouped.get(key, [])) if grouped.get(key) else 0
+            key = (start + relativedelta(months=i)).strftime('%Y-%m')
+            avg = sum(grouped.get(key, [])) / len(grouped[key]) if grouped.get(key) else 0
             results.append({
                 "month": datetime.strptime(key, "%Y-%m").strftime("Month of %B"),
                 "average_sentiment": avg
@@ -362,25 +304,21 @@ class JournalEntryModel:
 
         return results
 
-
-
     @staticmethod
     def get_entries_by_semantic_search(user_id, query_vector, top_k=5):
-     
+        try:
+            if not isinstance(query_vector, list):
+                raise ValueError("Query vector must be a list of floats")
 
-        entries = JournalEntryModel.get_all_entries(user_id)
-        def cosine_similarity(v1, v2):
-            dot = sum(a * b for a, b in zip(v1, v2))
-            norm1 = sum(a * a for a in v1) ** 0.5
-            norm2 = sum(b * b for b in v2) ** 0.5
-            return dot / (norm1 * norm2) if norm1 and norm2 else 0
+            results = db_session.query(JournalEntryModel) \
+                .filter(JournalEntryModel.user_id == user_id) \
+                .filter(JournalEntryModel.embedding != None) \
+                .order_by(JournalEntryModel.embedding.cosine_distance(cast(query_vector, Vector(1536)))) \
+                .limit(top_k) \
+                .all()
 
-        scored = []
-        for e in entries:
-            if "embedding" in e:
-                embedding = [float(x) for x in e["embedding"]]
-                sim = cosine_similarity(query_vector, embedding)
-                scored.append((sim, e))
+            return [entry.to_dict() for entry in results]
 
-        scored.sort(reverse=True, key=lambda x: x[0])
-        return [entry for _, entry in scored[:top_k]]
+        except Exception as e:
+            print(f"[ERROR] Failed to perform semantic search: {e}")
+            raise
