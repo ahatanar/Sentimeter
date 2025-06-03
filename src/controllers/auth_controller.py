@@ -1,6 +1,8 @@
 from flask import Blueprint, request, redirect, jsonify, make_response, url_for
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from models.user_model import UserModel
+from src.models.user_model import User
+
+
 import requests
 import os
 from flask_jwt_extended import jwt_required
@@ -82,9 +84,9 @@ def callback():
         email = user_info["email"]
         name = user_info.get("name", "User")
 
-        user = UserModel.find_by_google_id(google_id)
+        user = User.find_by_google_id(google_id)
         if not user:
-            UserModel.save(google_id, email, name)
+            User.save(google_id, email, name)
         print("🔎 Using redirect_url:", os.getenv("REDIRECT_URI"), flush=True)
 
         token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
@@ -115,11 +117,14 @@ def user_info():
     """
     try:
         user_id = get_jwt_identity().get("google_id")
-        user = UserModel.find_by_google_id(user_id)
+        user = User.find_by_google_id(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         return jsonify({
-            "email": user.get("email"),
-            "name": user.get("name"),
+            "email": user.email,
+            "name": user.name,
         }), 200
     except Exception as e:
         print(f"Error fetching user info: {e}")
