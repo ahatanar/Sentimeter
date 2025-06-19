@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from services.journal_service import JournalService
+from src.services.journal_service import JournalService
 
 journal_bp = Blueprint("journal", __name__, url_prefix="/api/journals")
 

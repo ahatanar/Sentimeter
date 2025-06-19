@@ -12,5 +12,4 @@ SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
-# 👇 this is what you should import from other files
 db_session = SessionLocal()

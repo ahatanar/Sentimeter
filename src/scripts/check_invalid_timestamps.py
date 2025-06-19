@@ -14,7 +14,7 @@ def is_valid_iso_timestamp(ts):
 
 def check_invalid_timestamps():
     table = get_table("journals")
-    print("🔍 Scanning for entries with invalid or missing timestamps...")
+    print("Scanning for entries with invalid or missing timestamps...")
     
     response = table.scan()
     items = response.get("Items", [])
@@ -25,8 +25,8 @@ def check_invalid_timestamps():
         if not ts or not isinstance(ts, str) or not is_valid_iso_timestamp(ts):
             bad_items.append(item)
 
-    print(f"✅ Total items scanned: {len(items)}")
-    print(f"❌ Entries with invalid/missing timestamps: {len(bad_items)}")
+    print(f"Total items scanned: {len(items)}")
+    print(f" Entries with invalid/missing timestamps: {len(bad_items)}")
 
     for bad in bad_items:
         print(f"- entry_id: {bad.get('entry_id')} | timestamp: {bad.get('timestamp')}")

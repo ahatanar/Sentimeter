@@ -18,3 +18,5 @@ torch==2.4.1
 PyJWT==2.9.0
 keybert==0.8.5
 openai==1.55.3
+psycopg2-binary==2.9.9
+pgvector==0.2.4

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
 from calendar import monthrange
 from dateutil.relativedelta import relativedelta
-from services.text_service import TextAnalysisService
+from src.services.text_service import TextAnalysisService
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, and_, cast
 from sqlalchemy.dialects.postgresql import UUID, ARRAY

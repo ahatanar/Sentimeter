@@ -25,8 +25,8 @@ for item in items:
     if "user_id" not in item:
         missing.append(item)
 
-print(f"✅ Total items scanned: {len(items)}")
-print(f"❌ Entries missing 'user_id': {len(missing)}")
+print(f"Total items scanned: {len(items)}")
+print(f"Entries missing 'user_id': {len(missing)}")
 
 for i, entry in enumerate(missing, 1):
     print(f"\n[{i}] {entry}")

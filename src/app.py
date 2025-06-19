@@ -10,8 +10,8 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from controllers.auth_controller import auth_bp
-from controllers.journal_controller import journal_bp
+from src.controllers.auth_controller import auth_bp
+from src.controllers.journal_controller import journal_bp
 
 
 
