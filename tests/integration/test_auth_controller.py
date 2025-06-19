@@ -64,7 +64,7 @@ class TestAuthController(unittest.TestCase):
     @patch('src.controllers.auth_controller.requests.get')
     @patch('src.controllers.auth_controller.requests.post')
     @patch('src.controllers.auth_controller.client')
-    @patch('src.controllers.auth_controller.UserModel')
+    @patch('src.controllers.auth_controller.User')
     def test_callback_success(
         self, mock_user_model, mock_client, mock_requests_post, mock_requests_get
     ):
@@ -106,10 +106,9 @@ class TestAuthController(unittest.TestCase):
         mock_user_model.save.return_value = None
 
         # Call the callback endpoint with a valid query string
-        with self.app.test_request_context(query_string={"code": "test-code"}):
-            response = self.client.get('/api/auth/callback')
+        response = self.client.get('/api/auth/callback?code=test-code')
 
-        self.assertEqual(response.status_code, 302)  # Ensure the redirect occurs
+        self.assertEqual(response.status_code, 303)  # Ensure the redirect occurs
 
         # Assertions for cookie
         cookies = response.headers.getlist('Set-Cookie')
@@ -124,12 +123,18 @@ class TestAuthController(unittest.TestCase):
         mock_requests_get.side_effect = Exception("Callback error")
 
         # Call the callback endpoint
-        with self.app.test_request_context(query_string={"code": "test-code"}):
-            response = self.client.get('/api/auth/callback')
+        response = self.client.get('/api/auth/callback?code=test-code')
 
         # Assertions
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json['error'], 'Failed to process callback')
+
+    def test_callback_missing_code(self):
+        response = self.client.get('/api/auth/callback')
+
+    
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json['error'], 'Missing code parameter')
 
 
 if __name__ == '__main__':

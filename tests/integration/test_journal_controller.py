@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token
-from src.controllers.jorunal_controller import journal_bp
+from src.controllers.journal_controller import journal_bp
 
 
 class TestJournalRoutes(unittest.TestCase):

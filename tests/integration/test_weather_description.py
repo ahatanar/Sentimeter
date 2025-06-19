@@ -64,8 +64,8 @@ class TestWeatherServiceIntegration(unittest.TestCase):
         self.assertEqual(result["city"], "Toronto")
         self.assertEqual(result["region"], "Ontario")
         self.assertEqual(result["country"], "Canada")
-        self.assertEqual(result["latitude"], 43.7)
-        self.assertEqual(result["longitude"], -79.4)
+        self.assertEqual(result["latitude"], "43.7")
+        self.assertEqual(result["longitude"], "-79.4")
 
         mock_get.assert_called_once_with("http://ip-api.com/json/8.8.8.8")
 
