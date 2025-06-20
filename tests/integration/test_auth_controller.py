@@ -8,12 +8,9 @@ from flask_jwt_extended import JWTManager
 class TestAuthController(unittest.TestCase):
 
     def setUp(self):
-        """
-        Set up the Flask test client and app context.
-        """
         self.app = Flask(__name__)
         self.app.config['JWT_SECRET_KEY'] = 'test-secret-key'
-        self.app.register_blueprint(auth_bp)  # Register only the auth blueprint
+        self.app.register_blueprint(auth_bp)
         self.jwt = JWTManager(self.app)
         self.client = self.app.test_client()
 
@@ -29,9 +26,6 @@ class TestAuthController(unittest.TestCase):
         self.app_context.push()
 
     def tearDown(self):
-        """
-        Clean up mocks and app context.
-        """
         self.env_patcher.stop()
         self.app_context.pop()
         patch.stopall()

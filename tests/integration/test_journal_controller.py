@@ -8,9 +8,6 @@ from src.controllers.journal_controller import journal_bp
 class TestJournalRoutes(unittest.TestCase):
 
     def setUp(self):
-        """
-        Set up the Flask test client and push an application context.
-        """
         self.app = Flask(__name__)
         self.app.config['TESTING'] = True
         self.app.config['JWT_SECRET_KEY'] = 'test-secret-key'
@@ -21,15 +18,9 @@ class TestJournalRoutes(unittest.TestCase):
         self.app_context.push()
 
     def tearDown(self):
-        """
-        Clean up the application context after each test.
-        """
         self.app_context.pop()
 
     def get_jwt_headers(self, user_id):
-        """
-        Helper method to generate JWT headers for tests.
-        """
         access_token = create_access_token(identity={"google_id": user_id})
         return {'Authorization': f'Bearer {access_token}'}
 
