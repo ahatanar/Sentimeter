@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from src.models.journal_model import JournalEntryModel
-
+from dateutil.parser import parse
 from src.services.text_service import TextAnalysisService
 from src.services.weather_service import WeatherService
 
@@ -26,10 +26,7 @@ class JournalService:
 
         sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
         key_words = TextAnalysisService.extract_keywords(entry)
-
-        timestamp = (
-            datetime.fromisoformat(optional_date) if optional_date else datetime.now()
-        )
+        timestamp = parse(optional_date) if optional_date else datetime.now()
         embedding_vector = TextAnalysisService.generate_openai_embedding(entry)
 
         journal_entry = JournalEntryModel(

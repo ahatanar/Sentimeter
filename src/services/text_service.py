@@ -49,7 +49,6 @@ class TextAnalysisService:
             stop_words='english',        
             top_n=top_n                  
         )
-        print(keywords)
         return [kw[0] for kw in keywords]  
         
 
@@ -60,7 +59,9 @@ class TextAnalysisService:
         :param weather_data: Dictionary containing weather details (e.g., temperature, humidity, description).
         :return: AI-generated weather description as a string.
         """
-    
+        if weather_data.get('description', 'N/A') == 'unknown':
+            return "Description not available."
+        
         prompt = (
         f"The weather details are as follows:\n"
         f"- Temperature: {weather_data.get('temperature', 'N/A')}°C\n"

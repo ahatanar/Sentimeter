@@ -26,6 +26,7 @@ class WeatherService:
                 )
             url = f"https://api.openweathermap.org/data/2.5/weather?q={location['city']}&units=metric&appid={api_key}"
 
+
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -53,6 +54,16 @@ class WeatherService:
         :param ip_address: The IP address of the user.
         :return: Location details (e.g., city, region, country).
         """
+
+        if ip_address in ["127.0.0.1", "::1"]:
+            print("[DEBUG] Localhost IP detected, defaulting to New York City.")
+            return {
+                "city": "New York",
+                "region": "NY",
+                "country": "USA",
+                "latitude": "40.7128",
+                "longitude": "-74.0060"
+            }
         try:
             response = requests.get(f"http://ip-api.com/json/{ip_address}")
             response.raise_for_status()
