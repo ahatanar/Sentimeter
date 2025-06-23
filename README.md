@@ -11,16 +11,17 @@
 ## Project Structure
 
 ### Frontend
-Located in the `SentimeterFrontend` folder, this component includes:
+Located in the `SentimeterFrontend` REPO at https://github.com/ahatanar/SentimeterFrontend, this component includes:
 - **React-based UI**
 - Source files for user interaction
 - Styling for a user-friendly experience
 
 ### Backend
-Located in the `Sentimeter` folder, this component includes:
+Located in this `Sentimeter` Repo, this component includes:
 - Flask-based backend server
 - RESTful APIs for journaling, mood tracking, and weather integration
 - Unit tests to ensure backend functionality
+- API Integrations as well DB logic for PostgresSQL
 
 ---
 
@@ -38,17 +39,6 @@ Located in the `Sentimeter` folder, this component includes:
 3. Start the backend server:
    ```
    python src/app.py
-
-### Frontend
-1. Navigate to the frontend directory:
-   ```
-   cd SentimeterFrontend
-2. Install the required npm dependencies:
-   ```
-   npm install
-3. Run the frontend development server:
-   ```
-   npm run dev
 
 ## HomePage
 ### Home Page
