@@ -173,45 +173,9 @@ class JournalEntryModel(Base):
             print(f"[ERROR] Failed to retrieve entries by keyword '{keyword}': {e}")
             raise
 
-    def get_top_keywords(user_id, top_n=10):
-        try:
-            entries = db_session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
-            all_keywords = [kw for entry in entries if entry.keywords for kw in entry.keywords]
-            return Counter(all_keywords).most_common(top_n)
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve top keywords: {e}")
-            raise
+   
 
-    @staticmethod
-    def get_heatmap_data(user_id):
-        """
-        Retrieve heatmap data for the last 365 days, grouped by date.
-        :param user_id: The user's ID.
-        :return: A dictionary with dates as keys and entry counts as values.
-        """
-        try:
-            today = datetime.now(timezone.utc)
-            one_year_ago = today - timedelta(days=365)
 
-            entries = db_session.query(JournalEntryModel.timestamp) \
-                .filter(JournalEntryModel.user_id == user_id) \
-                .filter(JournalEntryModel.timestamp >= one_year_ago) \
-                .all()
-
-            # Count entries per date
-            date_counts = Counter(entry.timestamp.date().isoformat() for entry in entries)
-
-            # Generate full 365-day heatmap
-            heatmap_data = {
-                (today - timedelta(days=i)).strftime('%Y-%m-%d'): date_counts.get(
-                    (today - timedelta(days=i)).strftime('%Y-%m-%d'), 0)
-                for i in range(365)
-            }
-
-            return heatmap_data
-        except Exception as e:
-            print(f"[ERROR] Failed to retrieve heatmap data: {e}")
-            raise
 
     @staticmethod
     def get_sentiments_by_date(user_id, start_date, end_date):
@@ -233,76 +197,7 @@ class JournalEntryModel(Base):
             print(f"[ERROR] Failed to retrieve entries by date: {e}")
             raise
 
-    @staticmethod
-    def get_last_week_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=6)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
 
-        grouped = defaultdict(list)
-        for e in raw:
-            grouped[e["timestamp"].date().isoformat()].append(e["sentiment_score"])
-
-        return [
-            {
-                "day": (start + timedelta(days=i)).strftime('%A'),
-                "average_sentiment": sum(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
-                                     max(len(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
-            }
-            for i in range(7)
-        ]
-
-    @staticmethod
-    def get_last_month_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=29)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-
-        grouped = defaultdict(list)
-        for e in raw:
-            days_ago = (today - e["timestamp"]).days
-            if days_ago <= 6:
-                label = "This week"
-            elif days_ago <= 13:
-                label = "Last week"
-            elif days_ago <= 20:
-                label = "2 weeks ago"
-            elif days_ago <= 27:
-                label = "3 weeks ago"
-            else:
-                label = "4 weeks ago"
-            grouped[label].append(e["sentiment_score"])
-
-        labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
-        return [
-            {
-                "week_label": label,
-                "average_sentiment": sum(grouped[label]) / len(grouped[label]) if grouped[label] else 0
-            }
-            for label in labels
-        ]
-
-    @staticmethod
-    def get_last_year_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=364)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-
-        grouped = defaultdict(list)
-        for e in raw:
-            key = e["timestamp"].strftime("%Y-%m")  # e.g., '2025-06'
-            grouped[key].append(e["sentiment_score"])
-
-        results = []
-        for i in range(12):
-            key = (start + relativedelta(months=i)).strftime('%Y-%m')
-            avg = sum(grouped.get(key, [])) / len(grouped[key]) if grouped.get(key) else 0
-            results.append({
-                "month": datetime.strptime(key, "%Y-%m").strftime("Month of %B"),
-                "average_sentiment": avg
-            })
-
-        return results
 
     @staticmethod
     def get_entries_by_semantic_search(user_id, query_vector, top_k=5):
@@ -322,3 +217,21 @@ class JournalEntryModel(Base):
         except Exception as e:
             print(f"[ERROR] Failed to perform semantic search: {e}")
             raise
+
+    @staticmethod
+    def get_entry_timestamps_in_range(user_id, start_date, end_date):
+        """
+        Return a list of timestamps for a user between start_date and end_date (inclusive).
+        """
+        try:
+            return [
+                entry.timestamp
+                for entry in db_session.query(JournalEntryModel.timestamp)
+                    .filter(JournalEntryModel.user_id == user_id)
+                    .filter(JournalEntryModel.timestamp >= start_date)
+                    .filter(JournalEntryModel.timestamp <= end_date)
+                    .all()
+            ]
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch entry timestamps for heatmap: {e}")
+            return []
