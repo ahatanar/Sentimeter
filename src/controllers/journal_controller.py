@@ -261,3 +261,15 @@ def get_entries_by_semantic_search():
         return jsonify({"entries": entries}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@journal_bp.route("/streak", methods=["GET"])
+@jwt_required()
+def get_streak():
+    """
+    Calculate and return the user's journaling streak statistics.
+    Endpoint: GET /api/journals/streak
+    """
+    user_id = extract_user_id()
+    stats = JournalService.get_streak_stats(user_id)
+    return jsonify(stats), 200

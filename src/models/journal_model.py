@@ -235,3 +235,12 @@ class JournalEntryModel(Base):
         except Exception as e:
             print(f"[ERROR] Failed to fetch entry timestamps for heatmap: {e}")
             return []
+
+    @staticmethod
+    def get_all_keywords(user_id):
+        try:
+            entries = db_session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
+            return entries
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve all keywords: {e}")
+            raise

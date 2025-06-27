@@ -130,11 +130,11 @@ class JournalService:
     
     @staticmethod
     def get_dashboard_sentiments(user_id):
-    return {
-        "last_week": JournalService.get_last_week_sentiments(user_id),
-        "last_month": JournalService.get_last_month_sentiments(user_id),
-        "last_year": JournalService.get_last_year_sentiments(user_id)
-    }
+        return {
+            "last_week": JournalService.get_last_week_sentiments(user_id),
+            "last_month": JournalService.get_last_month_sentiments(user_id),
+            "last_year": JournalService.get_last_year_sentiments(user_id)
+        }
 
     @staticmethod
     def get_last_week_sentiments(user_id):
@@ -216,7 +216,7 @@ class JournalService:
         """
         Retrieve the top N most common keywords across all entries for a user.
         """
-        return JournalEntryModel.get_top_keywords(user_id, top_n)
+        return JournalService.get_top_keywords(user_id, top_n)
 
     @staticmethod
     def semantic_search_entries(user_id, query):
@@ -227,9 +227,117 @@ class JournalService:
 
     def get_top_keywords(user_id, top_n=10):
         try:
-            entries = db_session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
+            entries = JournalEntryModel.get_all_keywords(user_id)
             all_keywords = [kw for entry in entries if entry.keywords for kw in entry.keywords]
             return Counter(all_keywords).most_common(top_n)
         except Exception as e:
             print(f"[ERROR] Failed to retrieve top keywords: {e}")
             raise
+
+
+    def get_streak_stats(user_id):
+        """
+        Computes journaling streak statistics for a given user.
+        """
+        from datetime import timedelta
+
+        entries = JournalService.get_all_journal_entries(user_id)
+        today = datetime.utcnow().date()
+        unique_dates = StreakService._extract_entry_dates(entries)
+
+        if not unique_dates:
+            return StreakService._empty_stats()
+
+        sorted_dates = sorted(unique_dates)
+        longest_streak = StreakService._calculate_longest_streak(sorted_dates)
+        current_streak = StreakService._calculate_current_streak(today, unique_dates)
+        missed_days = StreakService._get_missed_days(today, unique_dates, days=14)
+        calendar_activity = StreakService._get_calendar_activity(user_id, today, days=30)
+
+        return {
+            "streak": current_streak,
+            "longest_streak": longest_streak,
+            "has_written_today": today in unique_dates,
+            "last_entry_date": max(unique_dates).isoformat(),
+            "missed_days": missed_days,
+            "calendar_activity": calendar_activity
+        }
+
+
+class StreakService:
+    @staticmethod
+    def _extract_entry_dates(entries):
+        """Parses timestamps and returns a set of unique UTC dates."""
+        date_set = set()
+        for entry in entries:
+            try:
+                entry_date = parse(entry["timestamp"]).astimezone(timezone.utc).date()
+                date_set.add(entry_date)
+            except Exception as e:
+                print(f"[ERROR] Failed to parse timestamp: {entry['timestamp']} - {e}")
+        return date_set
+
+
+    @staticmethod
+    def _calculate_longest_streak(sorted_dates):
+        """Calculates the longest consecutive streak."""
+        if not sorted_dates:
+            return 0
+
+        longest = current = 1
+        for i in range(1, len(sorted_dates)):
+            if (sorted_dates[i] - sorted_dates[i - 1]).days == 1:
+                current += 1
+                longest = max(longest, current)
+            else:
+                current = 1
+        return longest
+
+
+    @staticmethod
+    def _calculate_current_streak(today, date_set):
+        """Calculates current streak ending today."""
+        from datetime import timedelta
+
+        streak = 0
+        cursor = today
+        while cursor in date_set:
+            streak += 1
+            cursor -= timedelta(days=1)
+        return streak
+
+
+    @staticmethod
+    def _get_missed_days(today, date_set, days):
+        """Returns list of ISO dates missed in the last `days` days."""
+        missed = [
+            (today - timedelta(days=i)).isoformat()
+            for i in range(days)
+            if (today - timedelta(days=i)) not in date_set
+        ]
+        missed.reverse()
+        return missed
+
+
+    @staticmethod
+    def _get_calendar_activity(user_id, today, days):
+        """Returns a heatmap-style dictionary of writing activity."""
+        heatmap = JournalService.get_heatmap_data(user_id)
+        return {
+            (today - timedelta(days=i)).isoformat(): heatmap.get((today - timedelta(days=i)).isoformat(), 0) > 0
+            for i in range(days)
+        }
+
+
+    @staticmethod
+    def _empty_stats():
+        """Returns a default zeroed-out stats object."""
+        return {
+            "streak": 0,
+            "longest_streak": 0,
+            "has_written_today": False,
+            "last_entry_date": None,
+            "missed_days": [],
+            "calendar_activity": {}
+        }
+    
