@@ -5,7 +5,12 @@ import openai
 from keybert import KeyBERT
 from random import Random
 from openai import OpenAI
-client = OpenAI()
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 HUGGING_FACE = os.getenv("HUGGING_FACE")
 kw_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
@@ -98,7 +103,7 @@ class TextAnalysisService:
 
     def generate_openai_embedding(text):
         try:
-            response = openai.embeddings.create(
+            response = client.embeddings.create(
                 input=text,
                 model="text-embedding-3-small"
             )

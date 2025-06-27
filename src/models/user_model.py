@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
-from src.database import Base, db_session
+from src.database import Base, db
 
 
 class User(Base):
@@ -14,10 +14,10 @@ class User(Base):
     @classmethod
     def save(cls, user_id, email, name):
         user = cls(user_id=user_id, email=email, name=name)
-        db_session.merge(user)
-        db_session.commit()
+        db.session.merge(user)
+        db.session.commit()
         return user
 
     @classmethod
     def find_by_google_id(cls, google_id):
-        return db_session.query(cls).filter_by(user_id=google_id).first()
+        return db.session.query(cls).filter_by(user_id=google_id).first()

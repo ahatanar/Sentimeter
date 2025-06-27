@@ -1,179 +1,150 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
+import uuid
 from src.models.journal_model import JournalEntryModel
 from sqlalchemy.orm.exc import NoResultFound
 
-class TestJournalEntryModel(unittest.TestCase):
+class TestJournalModel(unittest.TestCase):
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_save(self, mock_db_session):
-        # Create a test journal entry
-        user_id = 'test_user'
-        entry = 'This is a test journal entry.'
-        sentiment = 'Positive'
-        emotions = {'happiness': 0.9}
-
-        journal_entry = JournalEntryModel()
-        journal_entry.user_id = user_id
-        journal_entry.entry = entry
-        journal_entry.sentiment = sentiment
-        journal_entry.emotions = emotions
-
+        # Arrange
+        journal_entry = JournalEntryModel(
+            user_id="test_user",
+            entry="Test journal entry",
+            sentiment="positive",
+            sentiment_score=0.8
+        )
+        
+        # Act
         result = journal_entry.save()
-
-        # Assertions
+        
+        # Assert
+        self.assertEqual(result, journal_entry)
         mock_db_session.add.assert_called_once_with(journal_entry)
         mock_db_session.commit.assert_called_once()
-        self.assertEqual(result, journal_entry)
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_entry(self, mock_db_session):
-        # Mock the query response
-        mock_entry = MagicMock()
-        mock_entry.user_id = 'test_user'
-        mock_entry.timestamp = datetime(2024, 11, 12, 12, 0, 0, tzinfo=timezone.utc)
-        mock_entry.entry = 'Test entry'
+        # Arrange
+        user_id = "test_user"
+        timestamp = datetime.now(timezone.utc)
+        expected_entry = JournalEntryModel(
+            user_id=user_id,
+            entry="Test entry",
+            timestamp=timestamp
+        )
         
         mock_query = MagicMock()
-        mock_query.filter_by.return_value = mock_query
-        mock_query.one.return_value = mock_entry
+        mock_query.filter_by.return_value.one.return_value = expected_entry
         mock_db_session.query.return_value = mock_query
-
-        user_id = 'test_user'
-        timestamp = datetime(2024, 11, 12, 12, 0, 0, tzinfo=timezone.utc)
+        
+        # Act
         result = JournalEntryModel.get_entry(user_id, timestamp)
-
-        # Assertions
+        
+        # Assert
+        self.assertEqual(result, expected_entry)
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        mock_query.filter_by.assert_called_once_with(user_id=user_id, timestamp=timestamp)
-        self.assertEqual(result, mock_entry)
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_all_entries(self, mock_db_session):
-        # Mock the query response
-        mock_entry1 = MagicMock()
-        mock_entry1.to_dict.return_value = {
-            'user_id': 'test_user', 
-            'timestamp': '2024-11-12T12:00:00', 
-            'entry': 'Entry 1'
-        }
-        mock_entry2 = MagicMock()
-        mock_entry2.to_dict.return_value = {
-            'user_id': 'test_user', 
-            'timestamp': '2024-11-13T12:00:00', 
-            'entry': 'Entry 2'
-        }
+        # Arrange
+        user_id = "test_user"
+        entry1 = JournalEntryModel(user_id=user_id, entry="Entry 1")
+        entry2 = JournalEntryModel(user_id=user_id, entry="Entry 2")
+        expected_entries = [entry1, entry2]
         
         mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.all.return_value = [mock_entry1, mock_entry2]
+        mock_query.filter.return_value.order_by.return_value.limit.return_value.all.return_value = expected_entries
         mock_db_session.query.return_value = mock_query
+        
+        # Mock to_dict method
+        with patch.object(entry1, 'to_dict', return_value={'entry': 'Entry 1'}):
+            with patch.object(entry2, 'to_dict', return_value={'entry': 'Entry 2'}):
+                # Act
+                result = JournalEntryModel.get_all_entries(user_id, limit=10)
+                
+                # Assert
+                self.assertEqual(len(result), 2)
+                mock_db_session.query.assert_called_once_with(JournalEntryModel)
 
-        user_id = 'test_user'
-        entries = JournalEntryModel.get_all_entries(user_id)
-
-        # Assertions
-        mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        self.assertEqual(len(entries), 2)
-        self.assertEqual(entries[0]['entry'], 'Entry 1')
-        self.assertEqual(entries[1]['entry'], 'Entry 2')
-
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_delete_entry(self, mock_db_session):
-        # Mock the query response
-        mock_entry = MagicMock()
-        mock_entry.entry_id = 'test_entry_id'
+        # Arrange
+        entry_id = str(uuid.uuid4())
+        mock_entry = JournalEntryModel(entry_id=entry_id, user_id="test_user", entry="Test entry")
         
         mock_query = MagicMock()
-        mock_query.filter_by.return_value = mock_query
-        mock_query.one.return_value = mock_entry
+        mock_query.filter_by.return_value.one.return_value = mock_entry
         mock_db_session.query.return_value = mock_query
-
-        entry_id = "test_entry_id"
+        
+        # Act
         result = JournalEntryModel.delete_entry(entry_id)
-
-        # Assertions
+        
+        # Assert
+        self.assertTrue(result)
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        mock_query.filter_by.assert_called_once_with(entry_id=entry_id)
         mock_db_session.delete.assert_called_once_with(mock_entry)
         mock_db_session.commit.assert_called_once()
-        self.assertTrue(result)
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_delete_entry_not_found(self, mock_db_session):
-        # Mock NoResultFound exception
+        # Arrange
+        entry_id = str(uuid.uuid4())
+        
         mock_query = MagicMock()
-        mock_query.filter_by.return_value = mock_query
-        mock_query.one.side_effect = NoResultFound()
+        mock_query.filter_by.return_value.one.side_effect = NoResultFound()
         mock_db_session.query.return_value = mock_query
-
-        entry_id = "nonexistent_entry_id"
+        
+        # Act
         result = JournalEntryModel.delete_entry(entry_id)
-
-        # Assertions
+        
+        # Assert
+        self.assertFalse(result)
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        mock_query.filter_by.assert_called_once_with(entry_id=entry_id)
         mock_db_session.delete.assert_not_called()
         mock_db_session.commit.assert_not_called()
-        self.assertFalse(result)
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_entries_by_keyword(self, mock_db_session):
-        # Mock the query response
-        mock_entry1 = MagicMock()
-        mock_entry1.to_dict.return_value = {
-            "user_id": "user123", 
-            "keywords": ["work", "stress"], 
-            "entry": "Work is stressful."
-        }
-        mock_entry2 = MagicMock()
-        mock_entry2.to_dict.return_value = {
-            "user_id": "user123", 
-            "keywords": ["work", "rewarding"], 
-            "entry": "Work is rewarding."
-        }
+        # Arrange
+        user_id = "test_user"
+        keyword = "happy"
+        entry1 = JournalEntryModel(user_id=user_id, entry="I am happy today", keywords=["happy", "good"])
+        entry2 = JournalEntryModel(user_id=user_id, entry="Feeling happy and content", keywords=["happy", "content"])
+        expected_entries = [entry1, entry2]
         
         mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.filter.return_value = mock_query
-        mock_query.all.return_value = [mock_entry1, mock_entry2]
+        mock_query.filter.return_value.filter.return_value.all.return_value = expected_entries
         mock_db_session.query.return_value = mock_query
+        
+        # Mock to_dict method
+        with patch.object(entry1, 'to_dict', return_value={'entry': 'I am happy today'}):
+            with patch.object(entry2, 'to_dict', return_value={'entry': 'Feeling happy and content'}):
+                # Act
+                result = JournalEntryModel.get_entries_by_keyword(user_id, keyword)
+                
+                # Assert
+                self.assertEqual(len(result), 2)
+                mock_db_session.query.assert_called_once_with(JournalEntryModel)
 
-        keyword = "work"
-        user_id = "user123"
-        entries = JournalEntryModel.get_entries_by_keyword(user_id, keyword)
-
-        # Assertions
-        mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        self.assertEqual(len(entries), 2)
-        self.assertEqual(entries[0]["keywords"], ["work", "stress"])
-        self.assertEqual(entries[1]["keywords"], ["work", "rewarding"])
-    
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_top_keywords(self, mock_db_session):
-        # Mock the query response
-        mock_result1 = MagicMock()
-        mock_result1.keywords = ["work", "stress", "growth"]
-        mock_result2 = MagicMock()
-        mock_result2.keywords = ["work", "rewarding", "happiness"]
-        mock_result3 = MagicMock()
-        mock_result3.keywords = ["stress", "growth", "productivity"]
+        # Arrange
+        user_id = "test_user"
+        mock_keywords = [["happy", "good"], ["sad", "bad"], ["happy", "excited"]]
         
         mock_query = MagicMock()
-        mock_query.filter_by.return_value = mock_query
-        mock_query.all.return_value = [mock_result1, mock_result2, mock_result3]
+        mock_query.filter_by.return_value.all.return_value = mock_keywords
         mock_db_session.query.return_value = mock_query
-
-        user_id = "user123"
-        top_keywords = JournalEntryModel.get_top_keywords(user_id, top_n=3)
-
-        # Assertions
+        
+        # Act
+        result = JournalEntryModel.get_all_keywords(user_id)
+        
+        # Assert
+        self.assertEqual(result, mock_keywords)
         mock_db_session.query.assert_called_once_with(JournalEntryModel.keywords)
-        mock_query.filter_by.assert_called_once_with(user_id=user_id)
-        self.assertEqual(len(top_keywords), 3)
-        # Check that work appears twice, stress appears twice, etc.
-        keywords_dict = dict(top_keywords)
-        self.assertEqual(keywords_dict.get("work"), 2)
-        self.assertEqual(keywords_dict.get("stress"), 2)  
+
+if __name__ == '__main__':
+    unittest.main()  

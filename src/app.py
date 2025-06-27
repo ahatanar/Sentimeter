@@ -7,19 +7,21 @@ import sys
 from datetime import timedelta
 import boto3
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from src.controllers.auth_controller import auth_bp
 from src.controllers.journal_controller import journal_bp
-
-
-
-
+from src.database import db
 
 def create_app():
     app = Flask(__name__)
 
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
 
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "default_secret_key")
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default_jwt_secret")
@@ -30,20 +32,10 @@ def create_app():
     app.config["JWT_COOKIE_SECURE"] = False  
     CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://sentimeter-frontend.vercel.app"])
 
+    db.init_app(app)
 
     jwt = JWTManager(app)
-    try:
-        dynamodb = boto3.resource(
-            "dynamodb",
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            region_name=os.getenv("AWS_REGION"),
-        )
-        app.dynamodb = dynamodb  
-        print("DynamoDB connected successfully.")
-    except Exception as e:
-        print("Error connecting to DynamoDB:", e)
-        sys.exit(1)
+
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(journal_bp)

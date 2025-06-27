@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import uuid
-from src.database import Base, db_session
+from src.database import Base, db
 from sqlalchemy.sql.expression import desc
 
 from pgvector.sqlalchemy import Vector
@@ -35,20 +35,20 @@ class JournalEntryModel(Base):
 
     def save(self):
         try:
-            db_session.add(self)
-            db_session.commit()
+            db.session.add(self)
+            db.session.commit()
             return self
         except Exception as e:
-            db_session.rollback()
+            db.session.rollback()
             print(f"[ERROR] Failed to save journal entry: {e}")
             raise
 
     def delete(self):
         try:
-            db_session.delete(self)
-            db_session.commit()
+            db.session.delete(self)
+            db.session.commit()
         except Exception as e:
-            db_session.rollback()
+            db.session.rollback()
             print(f"[ERROR] Failed to delete journal entry: {e}")
             raise
 
@@ -69,7 +69,7 @@ class JournalEntryModel(Base):
     @classmethod
     def get_entry(cls, user_id, timestamp):
         try:
-            return db_session.query(JournalEntryModel).filter_by(user_id=user_id, timestamp=timestamp).one()
+            return db.session.query(JournalEntryModel).filter_by(user_id=user_id, timestamp=timestamp).one()
         except NoResultFound:
             print(f"[DEBUG] No journal entry found for user {user_id} at {timestamp}")
             return None
@@ -80,15 +80,15 @@ class JournalEntryModel(Base):
     @classmethod
     def delete_entry(cls, entry_id):
         try:
-            entry = db_session.query(JournalEntryModel).filter_by(entry_id=entry_id).one()
-            db_session.delete(entry)
-            db_session.commit()
+            entry = db.session.query(JournalEntryModel).filter_by(entry_id=entry_id).one()
+            db.session.delete(entry)
+            db.session.commit()
             return True
         except NoResultFound:
             print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
             return False
         except Exception as e:
-            db_session.rollback()
+            db.session.rollback()
             print(f"[ERROR] Failed to delete journal entry: {e}")
             raise
 
@@ -101,7 +101,7 @@ class JournalEntryModel(Base):
 
             print(f"📅 Querying {user_id} from {start_date} to {end_date}")
 
-            query = db_session.query(JournalEntryModel).filter(
+            query = db.session.query(JournalEntryModel).filter(
                 and_(
                     JournalEntryModel.user_id == user_id,
                     JournalEntryModel.timestamp >= start_date,
@@ -129,7 +129,7 @@ class JournalEntryModel(Base):
         :return: List of entries as dicts.
         """
         try:
-            query = db_session.query(JournalEntryModel).filter(
+            query = db.session.query(JournalEntryModel).filter(
                 JournalEntryModel.user_id == user_id
             ).order_by(JournalEntryModel.timestamp.desc())
 
@@ -153,7 +153,7 @@ class JournalEntryModel(Base):
     @staticmethod
     def get_recent_entries(user_id, limit=12):
         try:
-            return [entry.to_dict() for entry in db_session.query(JournalEntryModel)
+            return [entry.to_dict() for entry in db.session.query(JournalEntryModel)
             .filter_by(user_id=user_id)
             .order_by(desc(JournalEntryModel.timestamp))
             .limit(limit)
@@ -165,7 +165,7 @@ class JournalEntryModel(Base):
     @staticmethod
     def get_entries_by_keyword(user_id, keyword):
         try:
-            return [entry.to_dict() for entry in db_session.query(JournalEntryModel)
+            return [entry.to_dict() for entry in db.session.query(JournalEntryModel)
             .filter(JournalEntryModel.user_id == user_id)
             .filter(JournalEntryModel.keywords.any(keyword))
             .all()]
@@ -186,7 +186,7 @@ class JournalEntryModel(Base):
             start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
 
-            entries = db_session.query(JournalEntryModel.timestamp, JournalEntryModel.sentiment_score) \
+            entries = db.session.query(JournalEntryModel.timestamp, JournalEntryModel.sentiment_score) \
                 .filter(JournalEntryModel.user_id == user_id) \
                 .filter(JournalEntryModel.timestamp >= start_dt) \
                 .filter(JournalEntryModel.timestamp < end_dt) \
@@ -205,7 +205,7 @@ class JournalEntryModel(Base):
             if not isinstance(query_vector, list):
                 raise ValueError("Query vector must be a list of floats")
 
-            results = db_session.query(JournalEntryModel) \
+            results = db.session.query(JournalEntryModel) \
                 .filter(JournalEntryModel.user_id == user_id) \
                 .filter(JournalEntryModel.embedding != None) \
                 .order_by(JournalEntryModel.embedding.cosine_distance(cast(query_vector, Vector(1536)))) \
@@ -226,7 +226,7 @@ class JournalEntryModel(Base):
         try:
             return [
                 entry.timestamp
-                for entry in db_session.query(JournalEntryModel.timestamp)
+                for entry in db.session.query(JournalEntryModel.timestamp)
                     .filter(JournalEntryModel.user_id == user_id)
                     .filter(JournalEntryModel.timestamp >= start_date)
                     .filter(JournalEntryModel.timestamp <= end_date)
@@ -239,7 +239,7 @@ class JournalEntryModel(Base):
     @staticmethod
     def get_all_keywords(user_id):
         try:
-            entries = db_session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
+            entries = db.session.query(JournalEntryModel.keywords).filter_by(user_id=user_id).all()
             return entries
         except Exception as e:
             print(f"[ERROR] Failed to retrieve all keywords: {e}")

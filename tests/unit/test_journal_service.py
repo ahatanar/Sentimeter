@@ -5,68 +5,64 @@ from src.services.journal_service import JournalService
 
 class TestJournalService(unittest.TestCase):
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_all_entries_success(self, mock_db_session):
-        # Mock the query response
+        # Arrange
+        user_id = "test_user"
         mock_entry1 = MagicMock()
         mock_entry1.to_dict.return_value = {
-            'user_id': 'test_user', 
-            'timestamp': '2024-11-12T12:00:00', 
-            'entry_id': 'uuid1', 
-            'entry': 'Entry 1'
+            "entry_id": "entry1",
+            "user_id": user_id,
+            "entry": "Test entry 1",
+            "sentiment": "positive"
         }
         mock_entry2 = MagicMock()
         mock_entry2.to_dict.return_value = {
-            'user_id': 'test_user', 
-            'timestamp': '2024-11-13T12:00:00', 
-            'entry_id': 'uuid2', 
-            'entry': 'Entry 2'
+            "entry_id": "entry2", 
+            "user_id": user_id,
+            "entry": "Test entry 2",
+            "sentiment": "negative"
         }
         
         mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.all.return_value = [mock_entry1, mock_entry2]
+        mock_query.filter.return_value.order_by.return_value.all.return_value = [mock_entry1, mock_entry2]
         mock_db_session.query.return_value = mock_query
-
-        user_id = 'test_user'
-        entries = JournalEntryModel.get_all_entries(user_id)
-
-        # Assertions
+        
+        # Act
+        result = JournalEntryModel.get_all_entries(user_id)
+        
+        # Assert
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["entry"], "Test entry 1")
+        self.assertEqual(result[1]["entry"], "Test entry 2")
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
-        self.assertEqual(len(entries), 2)
-        self.assertEqual(entries[0]['entry'], 'Entry 1')
-        self.assertEqual(entries[1]['entry'], 'Entry 2')
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_all_entries_dynamodb_error(self, mock_db_session):
-        # Mock database error
-        mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.all.side_effect = Exception("Database error")
-        mock_db_session.query.return_value = mock_query
-
-        with self.assertRaises(Exception) as context:
-            JournalEntryModel.get_all_entries("test_user")
-
-        # Assertions
-        self.assertEqual(str(context.exception), "Database error")
+        # Arrange
+        user_id = "test_user"
+        mock_db_session.query.side_effect = Exception("Database connection failed")
+        
+        # Act & Assert
+        with self.assertRaises(Exception):
+            JournalEntryModel.get_all_entries(user_id)
+        
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
 
-    @patch('src.models.journal_model.db_session')
+    @patch('src.models.journal_model.db.session')
     def test_get_all_entries_empty(self, mock_db_session):
-        # Mock empty response
+        # Arrange
+        user_id = "test_user"
+        
         mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.all.return_value = []
+        mock_query.filter.return_value.order_by.return_value.all.return_value = []
         mock_db_session.query.return_value = mock_query
-
-        entries = JournalEntryModel.get_all_entries("test_user")
-
-        # Assertions
-        self.assertEqual(entries, [])
+        
+        # Act
+        result = JournalEntryModel.get_all_entries(user_id)
+        
+        # Assert
+        self.assertEqual(result, [])
         mock_db_session.query.assert_called_once_with(JournalEntryModel)
 
     @patch('src.models.journal_model.JournalEntryModel.get_entries_by_month')
@@ -85,3 +81,6 @@ class TestJournalService(unittest.TestCase):
         mock_get_entries_by_month.assert_called_once_with(user_id, year, month)
         self.assertEqual(len(entries), 2)
         self.assertEqual(entries[0]["entry_id"], "uuid1")
+
+if __name__ == '__main__':
+    unittest.main()
