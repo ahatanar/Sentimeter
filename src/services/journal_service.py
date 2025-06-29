@@ -238,27 +238,38 @@ class JournalService:
     def get_streak_stats(user_id):
         """
         Computes journaling streak statistics for a given user.
+        Returns dates in UTC to ensure consistency across timezones.
         """
-        from datetime import timedelta
-
         entries = JournalService.get_all_journal_entries(user_id)
-        today = datetime.utcnow().date()
+        # Ensure we're using UTC for all date calculations
+        today = datetime.now(timezone.utc).date()
         unique_dates = StreakService._extract_entry_dates(entries)
+
+        print(f"[DEBUG] Today UTC: {today}")
+        print(f"[DEBUG] Unique entry dates UTC: {sorted(unique_dates)}")
 
         if not unique_dates:
             return StreakService._empty_stats()
 
         sorted_dates = sorted(unique_dates)
+        print(f"[DEBUG] Sorted entry dates: {sorted_dates}")
         longest_streak = StreakService._calculate_longest_streak(sorted_dates)
         current_streak = StreakService._calculate_current_streak(today, unique_dates)
-        missed_days = StreakService._get_missed_days(today, unique_dates, days=14)
+        print(f"[DEBUG] Longest streak: {longest_streak}")
+        print(f"[DEBUG] Current streak: {current_streak}")
+        
+        missed_days = StreakService._get_missed_days(today, unique_dates)
         calendar_activity = StreakService._get_calendar_activity(user_id, today, days=30)
 
+        last_entry = max(unique_dates)
+
+        last_entry_with_time = datetime.combine(last_entry, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
         return {
             "streak": current_streak,
             "longest_streak": longest_streak,
             "has_written_today": today in unique_dates,
-            "last_entry_date": max(unique_dates).isoformat(),
+            "last_entry_date": last_entry_with_time.isoformat(),
             "missed_days": missed_days,
             "calendar_activity": calendar_activity
         }
@@ -297,26 +308,23 @@ class StreakService:
     @staticmethod
     def _calculate_current_streak(today, date_set):
         """Calculates current streak ending today."""
-        from datetime import timedelta
+        if not date_set:
+            return 0
 
+        last_entry_date = max(date_set)
+        
+        # If the last entry is not from today or yesterday, there is no current streak
+        if (today - last_entry_date).days > 1:
+            return 0
+            
         streak = 0
-        cursor = today
+        cursor = last_entry_date
+        
         while cursor in date_set:
             streak += 1
             cursor -= timedelta(days=1)
+            
         return streak
-
-
-    @staticmethod
-    def _get_missed_days(today, date_set, days):
-        """Returns list of ISO dates missed in the last `days` days."""
-        missed = [
-            (today - timedelta(days=i)).isoformat()
-            for i in range(days)
-            if (today - timedelta(days=i)) not in date_set
-        ]
-        missed.reverse()
-        return missed
 
 
     @staticmethod
@@ -340,4 +348,14 @@ class StreakService:
             "missed_days": [],
             "calendar_activity": {}
         }
+
+    @staticmethod
+    def _get_missed_days(today, date_set):
+        """Returns list of ISO dates missed in the last 7 days."""
+        missed = []
+        for i in range(7):  
+            check_date = today - timedelta(days=i)
+            if check_date not in date_set:
+                missed.append(check_date.isoformat())
+        return missed
     
