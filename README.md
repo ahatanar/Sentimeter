@@ -40,18 +40,22 @@ Located in this `Sentimeter` Repo, this component includes:
    ```
    python src/app.py
 
-## HomePage
-### Home Page
-![Home Page](Assets/Landingpage.png)
+## App Screenshots
 
-### Learn More Section
-![Learn More](Assets/LearnMore.png)
+### Homepage
+![Homepage](Assets/Homepage.png)
 
-### Login Page
-![Login Page](Assets/Login.png)
+### About Section
+![About](Assets/About.png)
 
-### Dashboard
-![Dashboard](Assets/Dashboard.png)
+### Insights Page 1
+![Insights Page 1](Assets/Insights%20Page%201.png)
+
+### Insights Page 2
+![Insights Page 2](Assets/Insights%20Page%202.png)
+
+### Search Page
+![Search Page](Assets/Search%20Page.png)
 
 ### Functional Diagram
 ![Functional Diagram](Assets/functional%20diagram1.png)
