@@ -245,18 +245,15 @@ class JournalService:
         today = datetime.now(timezone.utc).date()
         unique_dates = StreakService._extract_entry_dates(entries)
 
-        print(f"[DEBUG] Today UTC: {today}")
-        print(f"[DEBUG] Unique entry dates UTC: {sorted(unique_dates)}")
+
 
         if not unique_dates:
             return StreakService._empty_stats()
 
         sorted_dates = sorted(unique_dates)
-        print(f"[DEBUG] Sorted entry dates: {sorted_dates}")
         longest_streak = StreakService._calculate_longest_streak(sorted_dates)
         current_streak = StreakService._calculate_current_streak(today, unique_dates)
-        print(f"[DEBUG] Longest streak: {longest_streak}")
-        print(f"[DEBUG] Current streak: {current_streak}")
+     
         
         missed_days = StreakService._get_missed_days(today, unique_dates)
         calendar_activity = StreakService._get_calendar_activity(user_id, today, days=30)
