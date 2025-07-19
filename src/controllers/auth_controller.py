@@ -89,11 +89,10 @@ def callback():
             User.save(google_id, email, name)
         print("🔎 Using redirect_url:", os.getenv("REDIRECT_URI"), flush=True)
 
-        token = create_access_token(identity={"google_id": google_id, "email": email, "name": name})
-
+        token = create_access_token(identity=google_id)
         response = make_response("", 303)
         response.headers["Location"] = FRONTEND_REDIRECT_URI
-        response.set_cookie("access_token_cookie", token, samesite="None", secure=True, httponly=True)
+        response.set_cookie("access_token_cookie", token, samesite="Lax", secure=False, httponly=False, domain="localhost")
         return response
 
     except Exception as e:
@@ -116,8 +115,9 @@ def user_info():
         - 500 Error: A JSON object with an error message if fetching user info fails.
     """
     try:
-        user_id = get_jwt_identity().get("google_id")
-        user = User.find_by_google_id(user_id)
+        print(f"DEBUG: Cookies received: {list(request.cookies.keys())}")
+        identity = get_jwt_identity()
+        user = User.find_by_google_id(identity)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -171,6 +171,8 @@ def calendar_callback():
     except Exception as e:
         return jsonify({"error": f"Could not get authorization: {e}"}), 500
     
+
+
 
 
 @auth_bp.route("/addevent", methods=["POST"])

@@ -11,7 +11,8 @@ def extract_user_id():
     
     :return: The `google_id` of the authenticated user.
     """
-    return get_jwt_identity()["google_id"]
+    identity = get_jwt_identity()
+    return identity
 
 
 def get_client_ip():
