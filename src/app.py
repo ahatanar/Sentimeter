@@ -12,6 +12,7 @@ from flask_cors import CORS
 from src.controllers.auth_controller import auth_bp
 from src.controllers.journal_controller import journal_bp
 from src.controllers.notification_controller import notification_bp
+from src.controllers.weekly_survey_controller import weekly_survey_bp
 from src.database import db
 
 def create_app():
@@ -32,7 +33,11 @@ def create_app():
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False  
     app.config["JWT_COOKIE_SAMESITE"] = "Lax"  
     app.config["JWT_COOKIE_SECURE"] = False  
-    CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://sentimeter-frontend.vercel.app"])
+    CORS(app, 
+         supports_credentials=True, 
+         origins=["http://localhost:3000","https://sentimeter-frontend.vercel.app"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With"])
 
     db.init_app(app)
 
@@ -41,6 +46,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(journal_bp)
     app.register_blueprint(notification_bp)
+    app.register_blueprint(weekly_survey_bp)
     return app
 
 if __name__ == "__main__":

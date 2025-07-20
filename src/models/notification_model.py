@@ -13,6 +13,9 @@ class NotificationSettings(Base):
     journal_frequency = Column(String, default="daily", nullable=False)
     journal_time = Column(Time, default=time(20, 0), nullable=False)
     journal_day = Column(String, default="monday", nullable=False)
+    survey_enabled = Column(Boolean, default=True, nullable=False)
+    survey_day = Column(String, default="sunday", nullable=False)   # lowercase weekday
+    survey_time = Column(Time, default=time(18, 0), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -25,7 +28,10 @@ class NotificationSettings(Base):
             journal_enabled=False,
             journal_frequency="daily",
             journal_time=time(20, 0),
-            journal_day="monday"
+            journal_day="monday",
+            survey_enabled=True,
+            survey_day="sunday",
+            survey_time=time(18, 0)
         )
         db.session.add(settings)
         db.session.commit()
