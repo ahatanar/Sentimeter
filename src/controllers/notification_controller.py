@@ -53,7 +53,7 @@ def update_notification_settings():
             return jsonify({"error": "No data provided"}), 400
         
         # Validate required fields
-        allowed_fields = ["journal_enabled", "journal_frequency", "journal_time"]
+        allowed_fields = ["journal_enabled", "journal_frequency", "journal_time", "journal_day"]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
         if not update_data:
@@ -63,6 +63,12 @@ def update_notification_settings():
         if "journal_frequency" in update_data:
             if update_data["journal_frequency"] not in ["daily", "weekly"]:
                 return jsonify({"error": "journal_frequency must be 'daily' or 'weekly'"}), 400
+        
+        # Validate journal_day
+        if "journal_day" in update_data:
+            valid_days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            if update_data["journal_day"] not in valid_days:
+                return jsonify({"error": "journal_day must be a valid day of the week"}), 400
         
         # Validate journal_time format
         if "journal_time" in update_data:

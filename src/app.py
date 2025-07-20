@@ -11,6 +11,7 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from src.controllers.auth_controller import auth_bp
 from src.controllers.journal_controller import journal_bp
+from src.controllers.notification_controller import notification_bp
 from src.database import db
 
 def create_app():
@@ -39,6 +40,7 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(journal_bp)
+    app.register_blueprint(notification_bp)
     return app
 
 if __name__ == "__main__":
