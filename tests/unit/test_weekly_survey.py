@@ -270,13 +270,33 @@ class TestWeeklySurveySummary:
             # First survey: happiness=4, satisfaction=4, stress=3, anxiety=2
             # Second survey: happiness=5, satisfaction=5, stress=2, anxiety=1
             # Averages: happiness=4.5, satisfaction=4.5, stress=2.5, anxiety=1.5
+            # Check new computed fields for happiness
             assert result["computed"]["avg_happiness"] == 4.5
+            assert result["computed"]["max_happiness"] == 5
+            assert result["computed"]["min_happiness"] == 4
+            # Check new computed fields for satisfaction
             assert result["computed"]["avg_satisfaction"] == 4.5
+            assert result["computed"]["max_satisfaction"] == 5
+            assert result["computed"]["min_satisfaction"] == 4
+            # Check new computed fields for stress
             assert result["computed"]["avg_stress"] == 2.5
+            assert result["computed"]["max_stress"] == 3
+            assert result["computed"]["min_stress"] == 2
+            # Check new computed fields for anxiety
             assert result["computed"]["avg_anxiety"] == 1.5
-            assert result["computed"]["streak_weeks"] == 2
-            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["max_anxiety"] == 2
+            assert result["computed"]["min_anxiety"] == 1
+            # Check new computed fields for depression
+            assert result["computed"]["avg_depression"] == 1
+            assert result["computed"]["max_depression"] == 1
+            assert result["computed"]["min_depression"] == 1
+            # Check completion fields
+            assert result["computed"]["completion_count"] == 2
+            assert result["computed"]["completion_possible"] == 2
             assert result["computed"]["completion_rate"] == 100
+            # Check legacy fields
+            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["streak_weeks"] == 2
     
     @patch('src.services.weekly_survey_service.User.find_by_google_id')
     def test_get_survey_summary_user_not_found(self, mock_find_user):
@@ -325,7 +345,13 @@ class TestWeeklySurveySummary:
             assert len(null_weeks) == 1
             # Streak should be 0 since the most recent week (Jan 15) has no data
             assert result["computed"]["streak_weeks"] == 0
+            # Check completion fields for missing weeks
+            assert result["computed"]["completion_count"] == 1
+            assert result["computed"]["completion_possible"] == 2
             assert result["computed"]["completion_rate"] == 50
+            # Check legacy fields for missing weeks
+            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["streak_weeks"] == 0
     
     @patch('src.services.weekly_survey_service.User.find_by_google_id')
     @patch('src.services.weekly_survey_service.db.session.query')
@@ -365,6 +391,7 @@ class TestWeeklySurveySummary:
             assert data_week["urgent"] is True
             assert data_week["sleep_issue"] is True
             assert result["computed"]["high_alerts"] == 1
+            assert result["computed"]["streak_weeks"] == 1
     
     @patch('src.services.weekly_survey_service.User.find_by_google_id')
     @patch('src.services.weekly_survey_service.db.session.query')
@@ -395,4 +422,9 @@ class TestWeeklySurveySummary:
             assert result["computed"]["avg_anxiety"] == 0
             assert result["computed"]["streak_weeks"] == 0
             assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["completion_count"] == 0
+            assert result["computed"]["completion_possible"] == 2
             assert result["computed"]["completion_rate"] == 0 
+            # Check legacy fields for no surveys
+            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["streak_weeks"] == 0 

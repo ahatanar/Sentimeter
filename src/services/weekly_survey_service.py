@@ -127,19 +127,17 @@ class WeeklySurveyService:
         if 'week_start' in survey_data:
             try:
                 input_date = datetime.strptime(survey_data['week_start'], "%Y-%m-%d").date()
-                
                 # Convert any date to the Monday of that week
                 week_start = cls.calculate_week_start(input_date)
-                
                 # Validate it's not in the future
                 if week_start > date.today():
                     raise ValueError("Cannot create surveys for future weeks")
-                
                 return week_start
             except ValueError as e:
+                if str(e) == "Cannot create surveys for future weeks":
+                    raise
                 # Handle date parsing errors
                 raise ValueError("Invalid week_start format. Use YYYY-MM-DD")
-        
         # Default to current week
         return cls.calculate_week_start()
 
@@ -241,14 +239,31 @@ class WeeklySurveyService:
             values = [w[key] for w in filled if w[key] is not None]
             return round(sum(values) / len(values), 1) if values else 0
         
+        def stat(key, fn):
+            values = [w[key] for w in filled if w[key] is not None]
+            return fn(values) if values else 0
+
         computed = {
             "avg_happiness": avg("happiness"),
+            "max_happiness": stat("happiness", max),
+            "min_happiness": stat("happiness", min),
             "avg_satisfaction": avg("satisfaction"),
+            "max_satisfaction": stat("satisfaction", max),
+            "min_satisfaction": stat("satisfaction", min),
             "avg_stress": avg("stress"),
+            "max_stress": stat("stress", max),
+            "min_stress": stat("stress", min),
             "avg_anxiety": avg("anxiety"),
-            "streak_weeks": streak,
+            "max_anxiety": stat("anxiety", max),
+            "min_anxiety": stat("anxiety", min),
+            "avg_depression": avg("depression"),
+            "max_depression": stat("depression", max),
+            "min_depression": stat("depression", min),
+            "completion_count": len(filled),
+            "completion_possible": weeks,
+            "completion_rate": round(len(filled) / weeks * 100) if weeks else 0,
             "high_alerts": sum(1 for w in filled if w["urgent"]),
-            "completion_rate": round(len(filled) / weeks * 100)
+            "streak_weeks": streak
         }
         
         return {"weeks": summary, "computed": computed} 
