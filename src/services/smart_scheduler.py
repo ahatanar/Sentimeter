@@ -127,4 +127,8 @@ celery_app.conf.beat_schedule = {
         'task': 'src.services.smart_scheduler.send_bulk_journal_reminders',
         'schedule': 900.0,  # Every 15 minutes (15 * 60 seconds)
     },
+    'send-weekly-survey-reminders': {
+        'task': 'src.services.survey_scheduler.send_weekly_survey_reminders',
+        'schedule': 3600.0,  # Every hour (60 * 60 seconds)
+    },
 } 

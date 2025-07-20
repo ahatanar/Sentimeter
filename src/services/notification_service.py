@@ -35,6 +35,9 @@ class NotificationService:
             "journal_frequency": settings.journal_frequency,
             "journal_day": settings.journal_day,
             "journal_time": settings.journal_time.strftime("%H:%M") if settings.journal_time else "20:00",
+            "survey_enabled": settings.survey_enabled,
+            "survey_day": settings.survey_day,
+            "survey_time": settings.survey_time.strftime("%H:%M") if settings.survey_time else "18:00",
             "created_at": settings.created_at.isoformat() if settings.created_at else None,
             "updated_at": settings.updated_at.isoformat() if settings.updated_at else None
         }
@@ -42,7 +45,10 @@ class NotificationService:
     def update_user_settings(self, user_id: str, **kwargs) -> Dict[str, Any]:
         """Update notification settings for a user"""
         # Validate input
-        valid_fields = ["journal_enabled", "journal_frequency", "journal_time", "journal_day"]
+        valid_fields = [
+            "journal_enabled", "journal_frequency", "journal_time", "journal_day",
+            "survey_enabled", "survey_day", "survey_time"
+        ]
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_fields}
         
         # Convert time string to time object if provided
@@ -52,6 +58,14 @@ class NotificationService:
                 filtered_kwargs["journal_time"] = time_obj
             except ValueError:
                 raise ValueError("journal_time must be in HH:MM format")
+        
+        # Convert survey time string to time object if provided
+        if "survey_time" in filtered_kwargs and isinstance(filtered_kwargs["survey_time"], str):
+            try:
+                time_obj = datetime.strptime(filtered_kwargs["survey_time"], "%H:%M").time()
+                filtered_kwargs["survey_time"] = time_obj
+            except ValueError:
+                raise ValueError("survey_time must be in HH:MM format")
         
         # Update settings
         settings = NotificationSettings.update_settings(user_id, **filtered_kwargs)

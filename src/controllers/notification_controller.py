@@ -53,7 +53,10 @@ def update_notification_settings():
             return jsonify({"error": "No data provided"}), 400
         
         # Validate required fields
-        allowed_fields = ["journal_enabled", "journal_frequency", "journal_time", "journal_day"]
+        allowed_fields = [
+            "journal_enabled", "journal_frequency", "journal_time", "journal_day",
+            "survey_enabled", "survey_day", "survey_time"
+        ]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
         if not update_data:
@@ -70,6 +73,12 @@ def update_notification_settings():
             if update_data["journal_day"] not in valid_days:
                 return jsonify({"error": "journal_day must be a valid day of the week"}), 400
         
+        # Validate survey_day
+        if "survey_day" in update_data:
+            valid_days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            if update_data["survey_day"] not in valid_days:
+                return jsonify({"error": "survey_day must be a valid day of the week"}), 400
+        
         # Validate journal_time format
         if "journal_time" in update_data:
             try:
@@ -77,6 +86,14 @@ def update_notification_settings():
                 datetime.strptime(update_data["journal_time"], "%H:%M")
             except ValueError:
                 return jsonify({"error": "journal_time must be in HH:MM format"}), 400
+        
+        # Validate survey_time format
+        if "survey_time" in update_data:
+            try:
+                from datetime import datetime
+                datetime.strptime(update_data["survey_time"], "%H:%M")
+            except ValueError:
+                return jsonify({"error": "survey_time must be in HH:MM format"}), 400
         
         # Update settings
         updated_settings = notification_service.update_user_settings(user_id, **update_data)
