@@ -23,13 +23,14 @@ class JournalService:
         else:
             location = WeatherService.get_location_from_ip(ip_address) 
         weather_data = WeatherService.get_weather_by_location(location)
-        weather_description = TextAnalysisService.generate_weather_description(weather_data)
+        service = TextAnalysisService()
+        weather_description = service.generate_weather_description(weather_data)
 
 
         sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
         key_words = TextAnalysisService.extract_keywords(entry)
         timestamp = parse(optional_date) if optional_date else datetime.now()
-        embedding_vector = TextAnalysisService.generate_openai_embedding(entry)
+        embedding_vector = service.generate_embedding(entry)
 
         journal_entry = JournalEntryModel(
             user_id=user_id,
@@ -221,7 +222,8 @@ class JournalService:
     @staticmethod
     def semantic_search_entries(user_id, query):
         print("we enter service method for sure right?")
-        query_vector = TextAnalysisService.generate_openai_embedding(query)
+        service = TextAnalysisService()
+        query_vector = service.generate_embedding(query)
 
         return JournalEntryModel.get_entries_by_semantic_search(user_id, query_vector)
 
@@ -277,12 +279,15 @@ class StreakService:
     def _extract_entry_dates(entries):
         """Parses timestamps and returns a set of unique UTC dates."""
         date_set = set()
+        debug_dates = []
         for entry in entries:
             try:
                 entry_date = parse(entry["timestamp"]).astimezone(timezone.utc).date()
                 date_set.add(entry_date)
+                debug_dates.append((entry["timestamp"], str(entry_date)))
             except Exception as e:
                 print(f"[ERROR] Failed to parse timestamp: {entry['timestamp']} - {e}")
+        print(f"[DEBUG] Extracted UTC dates for user (last 10): {debug_dates[-10:]}")
         return date_set
 
 
