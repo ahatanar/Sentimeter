@@ -119,6 +119,37 @@ def get_missing_weeks():
         return jsonify({"error": "Failed to get missing weeks"}), 500
 
 
+@weekly_survey_bp.route("/summary", methods=["GET"])
+@jwt_required()
+def get_survey_summary():
+    """
+    Get survey summary with computed statistics for dashboard.
+    
+    Endpoint: GET /api/weekly-surveys/summary
+    
+    Query Parameters:
+    - weeks: Number of weeks to include (default: 12)
+    
+    :return: JSON response with weeks data and computed statistics.
+    """
+    user_id = extract_user_id()
+    
+    # Get query parameters
+    weeks = request.args.get("weeks", 12, type=int)
+    
+    # Validate weeks parameter
+    if weeks < 1 or weeks > 52:  # Reasonable limits
+        return jsonify({"error": "Weeks parameter must be between 1 and 52"}), 400
+    
+    try:
+        summary = WeeklySurveyService.get_survey_summary(user_id, weeks)
+        return jsonify(summary), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "Failed to get survey summary"}), 500
+
+
 @weekly_survey_bp.route("/test-reminder", methods=["POST"])
 @jwt_required()
 def test_survey_reminder():

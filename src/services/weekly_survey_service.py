@@ -2,6 +2,7 @@ from typing import Dict, Any, List, Optional
 from datetime import date, datetime, timedelta
 from src.models.weekly_survey_model import WeeklySurvey
 from src.models.user_model import User
+from src.database import db
 
 
 class WeeklySurveyService:
@@ -162,4 +163,92 @@ class WeeklySurveyService:
             if not existing_survey:
                 missing_weeks.append(week_start.isoformat())
         
-        return missing_weeks 
+        return missing_weeks
+
+    @classmethod
+    def get_survey_summary(cls, user_id: str, weeks: int = 12) -> Dict[str, Any]:
+        """Get survey summary with computed statistics for dashboard"""
+        # Validate user exists
+        user = User.find_by_google_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+        
+        today = date.today()
+        
+        # Calculate the start of the current week (Monday)
+        current_week_start = cls.calculate_week_start(today)
+        
+        # Calculate the start of the range (weeks back from current week)
+        range_start = current_week_start - timedelta(weeks=weeks-1)
+        
+        # Get surveys for the specified period
+        surveys = (
+            db.session.query(WeeklySurvey)
+            .filter(WeeklySurvey.user_id == user_id)
+            .filter(WeeklySurvey.week_start >= range_start)
+            .order_by(WeeklySurvey.week_start)
+            .all()
+        )
+        
+        # Build week slots so missing weeks show nulls
+        by_week = {survey.week_start: survey for survey in surveys}
+        summary = []
+        
+        # Generate weeks from oldest to newest
+        for i in range(weeks):
+            week_start = range_start + timedelta(weeks=i)
+            survey = by_week.get(week_start)
+            
+            if survey:
+                summary.append({
+                    "week_start": week_start.isoformat(),
+                    "label": week_start.strftime("%b %d").lstrip("0"),
+                    "stress": survey.stress,
+                    "anxiety": survey.anxiety,
+                    "depression": survey.depression,
+                    "happiness": survey.happiness,
+                    "satisfaction": survey.satisfaction,
+                    "urgent": survey.urgent_flag,
+                    "sleep_issue": survey.significant_sleep_issues
+                })
+            else:
+                summary.append({
+                    "week_start": week_start.isoformat(),
+                    "label": week_start.strftime("%b %d").lstrip("0"),
+                    "stress": None,
+                    "anxiety": None,
+                    "depression": None,
+                    "happiness": None,
+                    "satisfaction": None,
+                    "urgent": None,
+                    "sleep_issue": None
+                })
+        
+        # Calculate streak from most recent week backwards
+        streak = 0
+        for i in range(len(summary) - 1, -1, -1):  # Start from the end
+            if summary[i]["stress"] is not None:
+                streak += 1
+            else:
+                break  # Stop at first gap
+        
+        # Compute aggregates
+        filled = [w for w in summary if w["stress"] is not None]
+        
+        def avg(key):
+            if not filled:
+                return 0
+            values = [w[key] for w in filled if w[key] is not None]
+            return round(sum(values) / len(values), 1) if values else 0
+        
+        computed = {
+            "avg_happiness": avg("happiness"),
+            "avg_satisfaction": avg("satisfaction"),
+            "avg_stress": avg("stress"),
+            "avg_anxiety": avg("anxiety"),
+            "streak_weeks": streak,
+            "high_alerts": sum(1 for w in filled if w["urgent"]),
+            "completion_rate": round(len(filled) / weeks * 100)
+        }
+        
+        return {"weeks": summary, "computed": computed} 

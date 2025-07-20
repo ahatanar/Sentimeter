@@ -2,6 +2,7 @@ import pytest
 from datetime import date, timedelta
 from src.models.weekly_survey_model import WeeklySurvey
 from src.services.weekly_survey_service import WeeklySurveyService
+from unittest.mock import patch, MagicMock
 
 
 class TestWeeklySurveyModel:
@@ -214,4 +215,184 @@ class TestWeeklySurveyService:
         }
         validated = WeeklySurveyService.validate_survey_data(data)
         assert "week_start" not in validated
-        assert validated["stress"] == 3 
+        assert validated["stress"] == 3
+
+
+class TestWeeklySurveySummary:
+    """Test WeeklySurvey summary functionality"""
+    
+    @patch('src.services.weekly_survey_service.User.find_by_google_id')
+    @patch('src.services.weekly_survey_service.db.session.query')
+    def test_get_survey_summary_success(self, mock_query, mock_find_user):
+        """Test successful survey summary generation"""
+        # Mock user
+        mock_user = MagicMock()
+        mock_find_user.return_value = mock_user
+        
+        # Mock survey data - using dates that match the week calculation
+        # For 2 weeks starting from Jan 8, 2024 (when today is Jan 15)
+        mock_survey1 = MagicMock()
+        mock_survey1.week_start = date(2024, 1, 8)  # First week in range
+        mock_survey1.stress = 3
+        mock_survey1.anxiety = 2
+        mock_survey1.depression = 1
+        mock_survey1.happiness = 4
+        mock_survey1.satisfaction = 4
+        mock_survey1.urgent_flag = False
+        mock_survey1.significant_sleep_issues = False
+        
+        mock_survey2 = MagicMock()
+        mock_survey2.week_start = date(2024, 1, 15)  # Second week in range
+        mock_survey2.stress = 2
+        mock_survey2.anxiety = 1
+        mock_survey2.depression = 1
+        mock_survey2.happiness = 5
+        mock_survey2.satisfaction = 5
+        mock_survey2.urgent_flag = False
+        mock_survey2.significant_sleep_issues = False
+        
+        # Mock query chain
+        mock_query_instance = MagicMock()
+        mock_query_instance.filter.return_value = mock_query_instance
+        mock_query_instance.order_by.return_value = mock_query_instance
+        mock_query_instance.all.return_value = [mock_survey1, mock_survey2]
+        mock_query.return_value = mock_query_instance
+        
+        with patch('src.services.weekly_survey_service.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 15)
+            
+            result = WeeklySurveyService.get_survey_summary("test_user", 2)
+            
+            assert "weeks" in result
+            assert "computed" in result
+            assert len(result["weeks"]) == 2
+            # With 2 surveys, we expect the average to be calculated correctly
+            # First survey: happiness=4, satisfaction=4, stress=3, anxiety=2
+            # Second survey: happiness=5, satisfaction=5, stress=2, anxiety=1
+            # Averages: happiness=4.5, satisfaction=4.5, stress=2.5, anxiety=1.5
+            assert result["computed"]["avg_happiness"] == 4.5
+            assert result["computed"]["avg_satisfaction"] == 4.5
+            assert result["computed"]["avg_stress"] == 2.5
+            assert result["computed"]["avg_anxiety"] == 1.5
+            assert result["computed"]["streak_weeks"] == 2
+            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["completion_rate"] == 100
+    
+    @patch('src.services.weekly_survey_service.User.find_by_google_id')
+    def test_get_survey_summary_user_not_found(self, mock_find_user):
+        """Test survey summary with non-existent user"""
+        mock_find_user.return_value = None
+        
+        with pytest.raises(ValueError, match="User not found"):
+            WeeklySurveyService.get_survey_summary("nonexistent_user", 12)
+    
+    @patch('src.services.weekly_survey_service.User.find_by_google_id')
+    @patch('src.services.weekly_survey_service.db.session.query')
+    def test_get_survey_summary_with_missing_weeks(self, mock_query, mock_find_user):
+        """Test survey summary with missing weeks (nulls)"""
+        # Mock user
+        mock_user = MagicMock()
+        mock_find_user.return_value = mock_user
+        
+        # Mock only one survey (missing week) - using correct date
+        mock_survey = MagicMock()
+        mock_survey.week_start = date(2024, 1, 8)  # First week in range
+        mock_survey.stress = 3
+        mock_survey.anxiety = 2
+        mock_survey.depression = 1
+        mock_survey.happiness = 4
+        mock_survey.satisfaction = 4
+        mock_survey.urgent_flag = False
+        mock_survey.significant_sleep_issues = False
+        
+        # Mock query chain
+        mock_query_instance = MagicMock()
+        mock_query_instance.filter.return_value = mock_query_instance
+        mock_query_instance.order_by.return_value = mock_query_instance
+        mock_query_instance.all.return_value = [mock_survey]
+        mock_query.return_value = mock_query_instance
+        
+        with patch('src.services.weekly_survey_service.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 15)
+            
+            result = WeeklySurveyService.get_survey_summary("test_user", 2)
+            
+            assert len(result["weeks"]) == 2
+            # Check that we have one week with data and one with nulls
+            filled_weeks = [w for w in result["weeks"] if w["stress"] is not None]
+            null_weeks = [w for w in result["weeks"] if w["stress"] is None]
+            assert len(filled_weeks) == 1
+            assert len(null_weeks) == 1
+            # Streak should be 0 since the most recent week (Jan 15) has no data
+            assert result["computed"]["streak_weeks"] == 0
+            assert result["computed"]["completion_rate"] == 50
+    
+    @patch('src.services.weekly_survey_service.User.find_by_google_id')
+    @patch('src.services.weekly_survey_service.db.session.query')
+    def test_get_survey_summary_with_urgent_flags(self, mock_query, mock_find_user):
+        """Test survey summary with urgent flags"""
+        # Mock user
+        mock_user = MagicMock()
+        mock_find_user.return_value = mock_user
+        
+        # Mock survey with urgent flag - using correct date for 1 week
+        mock_survey = MagicMock()
+        mock_survey.week_start = date(2024, 1, 15)  # Current week in range
+        mock_survey.stress = 5
+        mock_survey.anxiety = 5
+        mock_survey.depression = 5
+        mock_survey.happiness = 1
+        mock_survey.satisfaction = 1
+        mock_survey.urgent_flag = True
+        mock_survey.significant_sleep_issues = True
+        
+        # Mock query chain
+        mock_query_instance = MagicMock()
+        mock_query_instance.filter.return_value = mock_query_instance
+        mock_query_instance.order_by.return_value = mock_query_instance
+        mock_query_instance.all.return_value = [mock_survey]
+        mock_query.return_value = mock_query_instance
+        
+        with patch('src.services.weekly_survey_service.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 15)
+            
+            result = WeeklySurveyService.get_survey_summary("test_user", 1)
+            
+            # For 1 week, we should have exactly one week with data
+            assert len(result["weeks"]) == 1
+            data_week = result["weeks"][0]
+            assert data_week["stress"] is not None
+            assert data_week["urgent"] is True
+            assert data_week["sleep_issue"] is True
+            assert result["computed"]["high_alerts"] == 1
+    
+    @patch('src.services.weekly_survey_service.User.find_by_google_id')
+    @patch('src.services.weekly_survey_service.db.session.query')
+    def test_get_survey_summary_no_surveys(self, mock_query, mock_find_user):
+        """Test survey summary with no surveys"""
+        # Mock user
+        mock_user = MagicMock()
+        mock_find_user.return_value = mock_user
+        
+        # Mock empty survey list
+        mock_query_instance = MagicMock()
+        mock_query_instance.filter.return_value = mock_query_instance
+        mock_query_instance.order_by.return_value = mock_query_instance
+        mock_query_instance.all.return_value = []
+        mock_query.return_value = mock_query_instance
+        
+        with patch('src.services.weekly_survey_service.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 15)
+            
+            result = WeeklySurveyService.get_survey_summary("test_user", 2)
+            
+            assert len(result["weeks"]) == 2
+            assert result["weeks"][0]["stress"] is None
+            assert result["weeks"][1]["stress"] is None
+            assert result["computed"]["avg_happiness"] == 0
+            assert result["computed"]["avg_satisfaction"] == 0
+            assert result["computed"]["avg_stress"] == 0
+            assert result["computed"]["avg_anxiety"] == 0
+            assert result["computed"]["streak_weeks"] == 0
+            assert result["computed"]["high_alerts"] == 0
+            assert result["computed"]["completion_rate"] == 0 

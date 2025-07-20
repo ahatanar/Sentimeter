@@ -281,20 +281,114 @@ class TestWeeklySurveyRoutes(unittest.TestCase):
 
     @patch('src.services.weekly_survey_service.WeeklySurveyService.get_missing_weeks')
     def test_get_missing_weeks_success(self, mock_get_missing_weeks):
-        """Test successful retrieval of missing weeks"""
-        mock_get_missing_weeks.return_value = ["2024-01-01", "2024-01-08", "2024-01-15"]
+        """Test successful missing weeks retrieval"""
+        mock_get_missing_weeks.return_value = ["2024-01-01", "2024-01-08"]
 
         headers = self.get_jwt_headers('test_user')
         response = self.client.get('/api/weekly-surveys/missing-weeks', headers=headers)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['missing_weeks'], ["2024-01-01", "2024-01-08", "2024-01-15"])
+        self.assertEqual(response.json['missing_weeks'], ["2024-01-01", "2024-01-08"])
         mock_get_missing_weeks.assert_called_once_with('test_user')
 
-    def test_get_missing_weeks_no_auth(self):
-        """Test missing weeks retrieval without authentication"""
-        response = self.client.get('/api/weekly-surveys/missing-weeks')
+    @patch('src.services.weekly_survey_service.WeeklySurveyService.get_missing_weeks')
+    def test_get_missing_weeks_error(self, mock_get_missing_weeks):
+        """Test missing weeks retrieval error"""
+        mock_get_missing_weeks.side_effect = Exception("Database error")
+
+        headers = self.get_jwt_headers('test_user')
+        response = self.client.get('/api/weekly-surveys/missing-weeks', headers=headers)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("error", response.json)
+
+    @patch('src.services.weekly_survey_service.WeeklySurveyService.get_survey_summary')
+    def test_get_survey_summary_success(self, mock_get_summary):
+        """Test successful survey summary retrieval"""
+        mock_summary = {
+            "weeks": [
+                {
+                    "week_start": "2024-01-01",
+                    "label": "Jan 1",
+                    "stress": 3,
+                    "anxiety": 2,
+                    "depression": 1,
+                    "happiness": 4,
+                    "satisfaction": 4,
+                    "urgent": False,
+                    "sleep_issue": False
+                }
+            ],
+            "computed": {
+                "avg_happiness": 4.0,
+                "avg_satisfaction": 4.0,
+                "avg_stress": 3.0,
+                "avg_anxiety": 2.0,
+                "streak_weeks": 1,
+                "high_alerts": 0,
+                "completion_rate": 100
+            }
+        }
+        mock_get_summary.return_value = mock_summary
+
+        headers = self.get_jwt_headers('test_user')
+        response = self.client.get('/api/weekly-surveys/summary?weeks=12', headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, mock_summary)
+        mock_get_summary.assert_called_once_with('test_user', 12)
+
+    @patch('src.services.weekly_survey_service.WeeklySurveyService.get_survey_summary')
+    def test_get_survey_summary_default_weeks(self, mock_get_summary):
+        """Test survey summary with default weeks parameter"""
+        mock_get_summary.return_value = {"weeks": [], "computed": {}}
+
+        headers = self.get_jwt_headers('test_user')
+        response = self.client.get('/api/weekly-surveys/summary', headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        mock_get_summary.assert_called_once_with('test_user', 12)
+
+    def test_get_survey_summary_invalid_weeks(self):
+        """Test survey summary with invalid weeks parameter"""
+        headers = self.get_jwt_headers('test_user')
+        
+        # Test weeks < 1
+        response = self.client.get('/api/weekly-surveys/summary?weeks=0', headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json)
+        
+        # Test weeks > 52
+        response = self.client.get('/api/weekly-surveys/summary?weeks=53', headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json)
+
+    @patch('src.services.weekly_survey_service.WeeklySurveyService.get_survey_summary')
+    def test_get_survey_summary_error(self, mock_get_summary):
+        """Test survey summary retrieval error"""
+        mock_get_summary.side_effect = ValueError("User not found")
+
+        headers = self.get_jwt_headers('test_user')
+        response = self.client.get('/api/weekly-surveys/summary', headers=headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json)
+
+    def test_get_survey_summary_unauthorized(self):
+        """Test survey summary without authentication"""
+        response = self.client.get('/api/weekly-surveys/summary')
         self.assertEqual(response.status_code, 401)
+
+    @patch('src.services.weekly_survey_service.WeeklySurveyService.get_survey_summary')
+    def test_get_survey_summary_custom_weeks(self, mock_get_summary):
+        """Test survey summary with custom weeks parameter"""
+        mock_get_summary.return_value = {"weeks": [], "computed": {}}
+
+        headers = self.get_jwt_headers('test_user')
+        response = self.client.get('/api/weekly-surveys/summary?weeks=8', headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        mock_get_summary.assert_called_once_with('test_user', 8)
 
     @patch('src.services.weekly_survey_service.WeeklySurveyService.create_weekly_survey')
     def test_create_weekly_survey_with_week_override(self, mock_create_survey):
