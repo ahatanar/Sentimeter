@@ -20,3 +20,6 @@ keybert==0.8.5
 openai==1.55.3
 psycopg2-binary==2.9.9
 pgvector==0.2.4
+sendgrid==6.11.0
+celery==5.3.4
+redis==5.0.1

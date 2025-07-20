@@ -56,7 +56,7 @@ class WeatherService:
         """
 
         if ip_address in ["127.0.0.1", "::1"]:
-            print("[DEBUG] Localhost IP detected, defaulting to New York City.")
+    
             return {
                 "city": "New York",
                 "region": "NY",

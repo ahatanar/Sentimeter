@@ -42,7 +42,7 @@ def login():
 
 @auth_bp.route("/callback", methods=["GET"])
 def callback():
-    print("🚨 CALLBACK FUNCTION ENTERED", flush=True)
+
     try:
         print("Callback URL hit:", request.url, flush=True)
 
@@ -87,7 +87,7 @@ def callback():
         user = User.find_by_google_id(google_id)
         if not user:
             User.save(google_id, email, name)
-        print("🔎 Using redirect_url:", os.getenv("REDIRECT_URI"), flush=True)
+
 
         token = create_access_token(identity=google_id)
         response = make_response("", 303)
@@ -115,7 +115,7 @@ def user_info():
         - 500 Error: A JSON object with an error message if fetching user info fails.
     """
     try:
-        print(f"DEBUG: Cookies received: {list(request.cookies.keys())}")
+
         identity = get_jwt_identity()
         user = User.find_by_google_id(identity)
 

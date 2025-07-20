@@ -10,6 +10,7 @@ class User(Base):
     email = Column(String, nullable=False, unique=True)
     name = Column(String, nullable=False)
     entries = relationship("JournalEntryModel", back_populates="user", lazy="dynamic")
+    notification_settings = relationship("NotificationSettings", back_populates="user", uselist=False)
 
     @classmethod
     def save(cls, user_id, email, name):

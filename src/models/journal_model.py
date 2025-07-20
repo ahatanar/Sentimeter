@@ -71,7 +71,7 @@ class JournalEntryModel(Base):
         try:
             return db.session.query(JournalEntryModel).filter_by(user_id=user_id, timestamp=timestamp).one()
         except NoResultFound:
-            print(f"[DEBUG] No journal entry found for user {user_id} at {timestamp}")
+    
             return None
         except Exception as e:
             print(f"[ERROR] Failed to retrieve journal entry: {e}")
@@ -85,7 +85,7 @@ class JournalEntryModel(Base):
             db.session.commit()
             return True
         except NoResultFound:
-            print(f"[DEBUG] No journal entry found with entry_id: {entry_id}")
+    
             return False
         except Exception as e:
             db.session.rollback()
