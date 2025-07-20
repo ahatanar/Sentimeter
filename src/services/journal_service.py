@@ -5,49 +5,45 @@ from src.services.text_service import TextAnalysisService
 from src.services.weather_service import WeatherService
 from collections import Counter
 from datetime import timedelta
+import logging
 
 class JournalService:
     @staticmethod
     def create_journal_entry(user_id, entry, ip_address, optional_date=None, location_data=None):
-        """
-        Create and save a new journal entry.
-        :param user_id: ID of the user creating the entry.
-        :param entry: Text of the journal entry.
-        :param ip_address: IP address for location/weather lookup.
-        :param optional_date: Optional timestamp for the journal entry (ISO format string).
-        :param location_data: Optional geolocation data (latitude and longitude).
-        :return: Dictionary with saved entry details.
-        """
-        if location_data:
-            location = WeatherService.reverse_geocode(location_data['latitude'],location_data['longitude'])
-        else:
-            location = WeatherService.get_location_from_ip(ip_address) 
-        weather_data = WeatherService.get_weather_by_location(location)
-        service = TextAnalysisService()
-        weather_description = service.generate_weather_description(weather_data)
+        try:
+            if location_data:
+                location = WeatherService.reverse_geocode(location_data['latitude'],location_data['longitude'])
+            else:
+                location = WeatherService.get_location_from_ip(ip_address)
+            weather_data = WeatherService.get_weather_by_location(location)
+            service = TextAnalysisService()
+            weather_description = service.generate_weather_description(weather_data)
 
+            sentiment, sentiment_score = service.analyze_sentiment(entry)
+            key_words = service.extract_keywords(entry)
+            timestamp = parse(optional_date) if optional_date else datetime.now()
+            embedding_vector = service.generate_embedding(entry)
 
-        sentiment, sentiment_score = TextAnalysisService.analyze_sentiment(entry)
-        key_words = TextAnalysisService.extract_keywords(entry)
-        timestamp = parse(optional_date) if optional_date else datetime.now()
-        embedding_vector = service.generate_embedding(entry)
+            journal_entry = JournalEntryModel(
+                user_id=user_id,
+                entry=entry,
+                sentiment=sentiment,
+                emotions=None,
+                timestamp=timestamp.isoformat(),
+                keywords=key_words,
+                location=location,
+                weather=weather_description,
+                sentiment_score=sentiment_score,
+                embedding=embedding_vector,
+            )
 
-        journal_entry = JournalEntryModel(
-            user_id=user_id,
-            entry=entry,
-            sentiment=sentiment,
-            emotions=None,
-            timestamp=timestamp.isoformat(),
-            keywords=key_words,
-            location=location,
-            weather=weather_description,
-            sentiment_score=sentiment_score,
-            embedding=embedding_vector,
-        )
+            saved_entry = journal_entry.save()
 
-        saved_entry = journal_entry.save()
-
-        return saved_entry.to_dict()
+            return saved_entry.to_dict()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise
 
     @staticmethod
     def get_all_journal_entries(user_id):

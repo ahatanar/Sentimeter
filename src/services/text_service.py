@@ -25,6 +25,11 @@ class KeywordExtractor(ABC):
         """Extract keywords from text"""
         pass
 
+class WeatherDescriber(ABC):
+    @abstractmethod
+    def generate_description(self, weather_data: Dict[str, Any]) -> str:
+        pass
+
 # ============================================================================
 # CONCRETE IMPLEMENTATIONS
 # ============================================================================
@@ -122,6 +127,43 @@ class OpenAIKeywordExtractor(KeywordExtractor):
             print(f"OpenAI keyword error: {e}")
             return []
 
+class OpenAIWeatherDescriber(WeatherDescriber):
+    def generate_description(self, weather_data: Dict[str, Any]) -> str:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        if weather_data.get('description', 'N/A') == 'unknown':
+            return "Description not available."
+        prompt = (
+            f"Weather: {weather_data.get('temperature', 'N/A')}°C, "
+            f"{weather_data.get('humidity', 'N/A')}% humidity, "
+            f"{weather_data.get('description', 'N/A')}, "
+            f"{weather_data.get('wind_speed', 'N/A')} m/s wind. "
+            f"Write a short weather description (max 150 chars)."
+        )
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-2024-08-06",
+                messages=[
+                    {"role": "system", "content": "You are a weather describing robot"},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=150,
+                temperature=0.5
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Weather description error: {e}")
+            return "Description not available."
+
+class TemplateWeatherDescriber(WeatherDescriber):
+    def generate_description(self, weather_data: Dict[str, Any]) -> str:
+        return (
+            f"{weather_data.get('description', 'N/A').capitalize()}, "
+            f"{weather_data.get('temperature', 'N/A')}°C, "
+            f"{weather_data.get('humidity', 'N/A')}% humidity, "
+            f"{weather_data.get('wind_speed', 'N/A')} m/s wind."
+        )
+
 # ============================================================================
 # MAIN SERVICE (Facade Pattern)
 # ============================================================================
@@ -134,12 +176,14 @@ class TextAnalysisService:
     
     def __init__(self, 
                  sentiment_provider: str = "huggingface",
-                 keyword_provider: str = "huggingface"):
+                 keyword_provider: str = "huggingface",
+                 weather_provider: str = "openai"):
         """
         Initialize with specified providers
         """
         self.sentiment_analyzer = self._create_sentiment_analyzer(sentiment_provider)
         self.keyword_extractor = self._create_keyword_extractor(keyword_provider)
+        self.weather_describer = self._create_weather_describer(weather_provider)
     
     def _create_sentiment_analyzer(self, provider: str) -> SentimentAnalyzer:
         """Factory method for sentiment analyzers"""
@@ -158,6 +202,14 @@ class TextAnalysisService:
             return OpenAIKeywordExtractor()
         else:
             raise ValueError(f"Unsupported keyword provider: {provider}")
+
+    def _create_weather_describer(self, provider: str) -> WeatherDescriber:
+        if provider == "openai":
+            return OpenAIWeatherDescriber()
+        elif provider == "template":
+            return TemplateWeatherDescriber()
+        else:
+            raise ValueError(f"Unsupported weather provider: {provider}")
     
     def analyze_sentiment(self, text: str) -> Tuple[str, float]:
         """Analyze sentiment using current provider"""
@@ -166,6 +218,9 @@ class TextAnalysisService:
     def extract_keywords(self, text: str, top_n: int = 5) -> List[str]:
         """Extract keywords using current provider"""
         return self.keyword_extractor.extract_keywords(text, top_n)
+
+    def generate_weather_description(self, weather_data: Dict[str, Any]) -> str:
+        return self.weather_describer.generate_description(weather_data)
     
     def switch_sentiment_provider(self, provider: str):
         """Switch sentiment analysis provider at runtime"""
@@ -174,3 +229,20 @@ class TextAnalysisService:
     def switch_keyword_provider(self, provider: str):
         """Switch keyword extraction provider at runtime"""
         self.keyword_extractor = self._create_keyword_extractor(provider)
+
+    def switch_weather_provider(self, provider: str):
+        """Switch weather description provider at runtime"""
+        self.weather_describer = self._create_weather_describer(provider)
+
+    def generate_embedding(self, text: str) -> Optional[List[float]]:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        try:
+            response = client.embeddings.create(
+                input=text,
+                model="text-embedding-3-small"
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"Embedding error: {e}")
+            return None
