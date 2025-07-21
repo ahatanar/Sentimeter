@@ -40,6 +40,23 @@ Located in this `Sentimeter` Repo, this component includes:
    ```
    python src/app.py
 
+
+### 
+cd Centimter
+
+# Start the Celery worker (for async enrichment, email, survey reminders)
+python3 -m celery -A src.celery_app worker --loglevel=info --pool=solo
+
+# (Optional) Start the Celery beat scheduler (for periodic/scheduled tasks)
+python3 -m celery -A src.celery_app beat --loglevel=info
+
+We use Celery workers for async tasks such as email sending, survey reminders, and data enrichment through AI. 
+- The **worker** processes background jobs (enrichment, email, etc.) so the user doesn't have to wait for slow operations.
+- The **beat scheduler** (optional) schedules periodic tasks, like sending reminders or weekly surveys.
+
+**You must have at least one worker running for async features to work.**
+- If you want scheduled reminders, also run the beat scheduler.
+
 ## App Screenshots
 
 ### Homepage

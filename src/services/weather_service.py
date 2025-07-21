@@ -87,7 +87,6 @@ class WeatherService:
         """
         api_key = LOCATION_KEY
         url = f"https://api.opencagedata.com/geocode/v1/json?q={lat}+{lon}&key={api_key}"
-
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -95,13 +94,15 @@ class WeatherService:
 
             if data['results']:
                 location = data['results'][0]['components']
-                return {
+                result = {
                     "city": location.get("city", location.get("town", location.get("village", "Unknown"))),
                     "region": location.get("state", "Unknown"),
                     "country": location.get("country", "Unknown"),
                     "latitude": str(lat),
                     "longitude": str(lon)
                 }
+                print(f"[WeatherService] Parsed location: {result}")
+                return result
             else:
                 return {
                     "city": "Unknown",
@@ -110,7 +111,7 @@ class WeatherService:
                     "latitude": str(lat),
                     "longitude": str(lon)
                 }
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return {
                 "city": "Unknown",
                 "region": "Unknown",

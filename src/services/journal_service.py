@@ -11,6 +11,11 @@ class JournalService:
     @staticmethod
     def create_journal_entry(user_id, entry, ip_address, optional_date=None, location_data=None):
         try:
+            import logging
+            logger = logging.getLogger("journal_service")
+            print(f"[JournalService] Creating journal entry for user_id={user_id}")
+            print(f"[JournalService] Received location_data from UI: {location_data}")
+            print(f"[JournalService] IP address: {ip_address}")
             timestamp = parse(optional_date) if optional_date else datetime.now()
             
             # Save minimal entry with processing=True
@@ -31,9 +36,11 @@ class JournalService:
             )
 
             saved_entry = journal_entry.save()
+            print(f"[JournalService] Journal entry saved with entry_id={saved_entry.entry_id}")
             
             # Import here to avoid circular import
             from src.tasks.enrich import enrich_journal_entry
+            print(f"[JournalService] Triggering async enrichment for entry_id={saved_entry.entry_id}")
             enrich_journal_entry.delay(str(saved_entry.entry_id))
 
             return saved_entry.to_dict()

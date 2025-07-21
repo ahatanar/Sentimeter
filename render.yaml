@@ -6,7 +6,7 @@ services:
     plan: free
     branch: main
     buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: gunicorn -w 4 -b 0.0.0.0:5000 'src.app:create_app()'
+    startCommand: gunicorn -w 1 -b 0.0.0.0:5000 'src.app:create_app()'
     envVars:
       - fromGroup: sentimeter
     healthCheckPath: /health/celery
