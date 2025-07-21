@@ -32,9 +32,10 @@ def get_hf_keybert_model():
         _hf_keybert_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
     return _hf_keybert_model
 
-# Eagerly load models at worker startup
-get_hf_sentiment_pipeline()
-get_hf_keybert_model()
+# Eagerly load models at worker startup ONLY if IS_CELERY_WORKER=1
+if os.getenv("IS_CELERY_WORKER") == "1":
+    get_hf_sentiment_pipeline()
+    get_hf_keybert_model()
 
 # =========================================================================
 # ABSTRACT INTERFACES (Strategy Pattern)
