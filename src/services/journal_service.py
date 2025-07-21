@@ -6,38 +6,35 @@ from src.services.weather_service import WeatherService
 from collections import Counter
 from datetime import timedelta
 import logging
+from src.tasks.enrich import enrich_journal_entry
 
 class JournalService:
     @staticmethod
     def create_journal_entry(user_id, entry, ip_address, optional_date=None, location_data=None):
         try:
-            if location_data:
-                location = WeatherService.reverse_geocode(location_data['latitude'],location_data['longitude'])
-            else:
-                location = WeatherService.get_location_from_ip(ip_address)
-            weather_data = WeatherService.get_weather_by_location(location)
-            service = TextAnalysisService()
-            weather_description = service.generate_weather_description(weather_data)
-
-            sentiment, sentiment_score = service.analyze_sentiment(entry)
-            key_words = service.extract_keywords(entry)
             timestamp = parse(optional_date) if optional_date else datetime.now()
-            embedding_vector = service.generate_embedding(entry)
-
+            
+            # Save minimal entry with processing=True
             journal_entry = JournalEntryModel(
                 user_id=user_id,
                 entry=entry,
-                sentiment=sentiment,
-                emotions=None,
                 timestamp=timestamp.isoformat(),
-                keywords=key_words,
-                location=location,
-                weather=weather_description,
-                sentiment_score=sentiment_score,
-                embedding=embedding_vector,
+                processing=True,
+                ip_address=ip_address,
+                location=location_data if location_data else None,
+                # All enrichment fields will be None initially
+                sentiment=None,
+                sentiment_score=None,
+                emotions=None,
+                keywords=None,
+                weather=None,
+                embedding=None,
             )
 
             saved_entry = journal_entry.save()
+            
+            # Trigger async enrichment
+            enrich_journal_entry.delay(str(saved_entry.entry_id))
 
             return saved_entry.to_dict()
         except Exception as e:

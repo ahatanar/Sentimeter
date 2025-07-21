@@ -5,7 +5,7 @@ from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 from src.services.text_service import TextAnalysisService
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, and_, cast
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, and_, cast, Boolean
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -29,6 +29,9 @@ class JournalEntryModel(Base):
     weather = Column(JSON)
     location = Column(JSON)
     embedding = Column(Vector(1536))
+    processing = Column(Boolean, default=True, index=True)
+    last_enriched_at = Column(DateTime(timezone=True), nullable=True, default=None)
+    ip_address = Column(String, nullable=True)
 
     user = relationship("User", back_populates="entries", lazy="joined")
 
@@ -63,7 +66,10 @@ class JournalEntryModel(Base):
             "emotions": self.emotions,
             "keywords": self.keywords,
             "weather": self.weather,
-            "location": self.location
+            "location": self.location,
+            "processing": self.processing,
+            "last_enriched_at": self.last_enriched_at.isoformat() if self.last_enriched_at else None,
+            "ip_address": self.ip_address
         }
 
     @classmethod
