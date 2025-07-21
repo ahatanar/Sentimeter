@@ -116,7 +116,6 @@ class OpenAISentimentAnalyzer(SentimentAnalyzer):
                 return "neutral", 0.5
                 
         except Exception as e:
-            print(f"OpenAI sentiment error: {e}")
             return "neutral", 0.0
 
 class HuggingFaceKeywordExtractor(KeywordExtractor):
@@ -155,7 +154,6 @@ class OpenAIKeywordExtractor(KeywordExtractor):
             return [kw.strip() for kw in keywords.split(",")]
             
         except Exception as e:
-            print(f"OpenAI keyword error: {e}")
             return []
 
 class OpenAIWeatherDescriber(WeatherDescriber):
@@ -183,7 +181,6 @@ class OpenAIWeatherDescriber(WeatherDescriber):
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Weather description error: {e}")
             return "Description not available."
 
 class TemplateWeatherDescriber(WeatherDescriber):
@@ -275,5 +272,4 @@ class TextAnalysisService:
             )
             return response.data[0].embedding
         except Exception as e:
-            print(f"Embedding error: {e}")
             return None

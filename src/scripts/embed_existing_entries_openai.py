@@ -20,7 +20,6 @@ def get_openai_embedding(text):
         )
         return response.data[0].embedding
     except Exception as e:
-        print(f"Failed to embed: {e}")
         return None
 
 def embed_existing_entries():
@@ -57,16 +56,13 @@ def embed_existing_entries():
                         ExpressionAttributeValues={":vec": embedding_decimal}
                     )
                     total_embedded += 1
-                    print(f" Embedded: {entry_id}")
                     time.sleep(0.2)
                 except Exception as e:
-                    print(f"Failed to save embedding for {entry_id}: {e}")
+                    pass
 
         if "LastEvaluatedKey" not in response:
             break
         last_evaluated_key = response["LastEvaluatedKey"]
-
-    print(f"\nDone. Total entries embedded: {total_embedded}")
 
 
 if __name__ == "__main__":

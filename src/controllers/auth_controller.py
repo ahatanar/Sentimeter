@@ -32,11 +32,9 @@ def login():
             scope=["openid", "email", "profile"]
         )
 
-        print("Redirecting to:", request_uri, flush=True)
         return redirect(request_uri)
 
     except Exception as e:
-        print(f"Error during login: {e}", flush=True)
         return jsonify({"error": "Failed to initiate login"}), 500
 
 
@@ -48,10 +46,8 @@ def callback():
 
         code = request.args.get("code")
         if not code:
-            print("Missing code in callback", flush=True)
             return jsonify({"error": "Missing code parameter"}), 400
 
-        print("Received code:", code[:10] + "...", flush=True)
 
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
@@ -66,7 +62,6 @@ def callback():
         token_response = requests.post(token_url, headers=headers, data=body)
 
         if not token_response.ok:
-            print("Token response error:", token_response.text, flush=True)
             return jsonify({"error": "Failed to get token from Google"}), 500
 
         client.parse_request_body_response(token_response.text)
@@ -76,7 +71,6 @@ def callback():
         userinfo_response = requests.get(uri, headers=headers, data=body)
 
         if not userinfo_response.ok:
-            print("User info error:", userinfo_response.text, flush=True)
             return jsonify({"error": "Failed to get user info"}), 500
 
         user_info = userinfo_response.json()
@@ -96,7 +90,6 @@ def callback():
         return response
 
     except Exception as e:
-        print("Error during callback:", str(e), flush=True)
         return jsonify({"error": "Failed to process callback"}), 500
 
 
@@ -127,7 +120,6 @@ def user_info():
             "name": user.name,
         }), 200
     except Exception as e:
-        print(f"Error fetching user info: {e}")
         return jsonify({"error": "Failed to fetch user info"}), 500
     
 @auth_bp.route("/authorize-calendar", methods=["GET"])
@@ -179,7 +171,6 @@ def calendar_callback():
 @jwt_required()  
 def add_event():
     try:
-        print("Reached endpoint")  
 
         user_identity = get_jwt_identity()
         access_token = user_identity.get("access_token")

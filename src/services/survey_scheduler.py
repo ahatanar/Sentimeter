@@ -30,9 +30,6 @@ def send_weekly_survey_reminders():
         weekday = today.strftime("%A").lower()  # e.g. 'sunday'
         week_start = WeeklySurveyService.calculate_week_start()
         
-        print(f"🔍 [SURVEY_SCHEDULER] Checking for survey reminders on {today} ({weekday})")
-        print(f"🔍 [SURVEY_SCHEDULER] Week start: {week_start}")
-        
         # Get users who should receive survey reminders today
         users_to_remind = get_users_for_survey_reminder(weekday)
         
@@ -44,9 +41,8 @@ def send_weekly_survey_reminders():
             if not survey_exists:
                 result = send_survey_reminder_task.delay(user.user_id)
                 results.append(result)
-                print(f"✅ [SURVEY_SCHEDULER] Scheduled reminder for user: {user.name}")
             else:
-                print(f"⏭️ [SURVEY_SCHEDULER] Skipping user {user.name} - survey already completed")
+                pass
         
         return {
             "success": True,

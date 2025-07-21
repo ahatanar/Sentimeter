@@ -105,8 +105,6 @@ class JournalEntryModel(Base):
             end_day = monthrange(int(year), int(month))[1]
             end_date = datetime(int(year), int(month), end_day, 23, 59, 59, tzinfo=timezone.utc)
 
-            print(f"📅 Querying {user_id} from {start_date} to {end_date}")
-
             query = db.session.query(JournalEntryModel).filter(
                 and_(
                     JournalEntryModel.user_id == user_id,

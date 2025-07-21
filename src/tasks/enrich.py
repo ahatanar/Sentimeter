@@ -22,15 +22,10 @@ def enrich_journal_entry(self, entry_id):
         if entry.location and isinstance(entry.location, dict) and entry.location.get('latitude') and entry.location.get('longitude'):
             coords = (entry.location['latitude'], entry.location['longitude'])
         if coords:
-            print(f"[EnrichTask] Attempting reverse geocode for lat={coords[0]}, lon={coords[1]}")
             location = WeatherService.reverse_geocode(*coords)
-            print(f"[EnrichTask] Reverse geocode result: {location}")
         elif entry.ip_address:
-            print(f"[EnrichTask] Getting location from IP: {entry.ip_address}")
             location = WeatherService.get_location_from_ip(entry.ip_address)
-            print(f"[EnrichTask] IP geocode result: {location}")
         else:
-            print(f"[EnrichTask] No location or IP available, defaulting to unknown.")
             location = {"city": "Unknown", "region": "Unknown", "country": "Unknown"}
 
         # 2. Weather

@@ -13,9 +13,7 @@ class JournalService:
         try:
             import logging
             logger = logging.getLogger("journal_service")
-            print(f"[JournalService] Creating journal entry for user_id={user_id}")
-            print(f"[JournalService] Received location_data from UI: {location_data}")
-            print(f"[JournalService] IP address: {ip_address}")
+            # All print statements removed from this file
             timestamp = parse(optional_date) if optional_date else datetime.now()
             
             # Save minimal entry with processing=True
@@ -36,11 +34,11 @@ class JournalService:
             )
 
             saved_entry = journal_entry.save()
-            print(f"[JournalService] Journal entry saved with entry_id={saved_entry.entry_id}")
+            # All print statements removed from this file
             
             # Import here to avoid circular import
             from src.tasks.enrich import enrich_journal_entry
-            print(f"[JournalService] Triggering async enrichment for entry_id={saved_entry.entry_id}")
+            # All print statements removed from this file
             enrich_journal_entry.delay(str(saved_entry.entry_id))
 
             return saved_entry.to_dict()
@@ -126,7 +124,7 @@ class JournalService:
             }
             return heatmap_data
         except Exception as e:
-            print(f"[ERROR] Failed to generate heatmap data: {e}")
+            # All print statements removed from this file
             return {}
     
     @staticmethod
@@ -221,10 +219,8 @@ class JournalService:
 
     @staticmethod
     def semantic_search_entries(user_id, query):
-        print("we enter service method for sure right?")
         service = TextAnalysisService()
         query_vector = service.generate_embedding(query)
-
         return JournalEntryModel.get_entries_by_semantic_search(user_id, query_vector)
 
     def get_top_keywords(user_id, top_n=10):
@@ -233,7 +229,7 @@ class JournalService:
             all_keywords = [kw for entry in entries if entry.keywords for kw in entry.keywords]
             return Counter(all_keywords).most_common(top_n)
         except Exception as e:
-            print(f"[ERROR] Failed to retrieve top keywords: {e}")
+            # All print statements removed from this file
             raise
 
 
@@ -286,8 +282,8 @@ class StreakService:
                 date_set.add(entry_date)
                 debug_dates.append((entry["timestamp"], str(entry_date)))
             except Exception as e:
-                print(f"[ERROR] Failed to parse timestamp: {entry['timestamp']} - {e}")
-        print(f"[DEBUG] Extracted UTC dates for user (last 10): {debug_dates[-10:]}")
+                pass
+        
         return date_set
 
 

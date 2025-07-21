@@ -38,7 +38,6 @@ class WeatherService:
                 "wind_speed": data["wind"]["speed"]
             }
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch weather: {e}")
             return {
                 "description": "Unknown",
                 "temperature": 0,
@@ -101,7 +100,6 @@ class WeatherService:
                     "latitude": str(lat),
                     "longitude": str(lon)
                 }
-                print(f"[WeatherService] Parsed location: {result}")
                 return result
             else:
                 return {

@@ -15,8 +15,6 @@ dynamodb = boto3.resource(
 
 table = dynamodb.Table("journals")
 
-print("🔍 Scanning DynamoDB for entries missing 'user_id'...")
-
 response = table.scan()
 items = response.get("Items", [])
 missing = []
@@ -24,9 +22,3 @@ missing = []
 for item in items:
     if "user_id" not in item:
         missing.append(item)
-
-print(f"Total items scanned: {len(items)}")
-print(f"Entries missing 'user_id': {len(missing)}")
-
-for i, entry in enumerate(missing, 1):
-    print(f"\n[{i}] {entry}")

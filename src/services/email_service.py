@@ -43,7 +43,6 @@ class SendGridEmailProvider(EmailProvider):
             
             return success
         except Exception as e:
-            print(f"Error sending email via SendGrid: {e}")
             return False
 
 
