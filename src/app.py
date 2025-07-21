@@ -47,6 +47,11 @@ def create_app():
     app.register_blueprint(journal_bp)
     app.register_blueprint(notification_bp)
     app.register_blueprint(weekly_survey_bp)
+
+    @app.route("/health", methods=["GET"])
+    def health():
+        return jsonify({"status": "ok"}), 200
+
     return app
 
 if __name__ == "__main__":

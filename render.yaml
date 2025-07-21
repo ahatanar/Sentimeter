@@ -1,38 +1,11 @@
 services:
   # ── Web API ────────────────────────────────────────────
   - type: web
+    plan: free
     name: sentimeter-web
     env: python
-    plan: free
-    branch: main
-    buildCommand: pip install --no-cache-dir -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -w 1 -b 0.0.0.0:5000 'src.app:create_app()'
-    envVars:
-      - fromGroup: sentimeter
-    healthCheckPath: /health/celery
-
-  # ── Celery worker (executes queued jobs) ───────────────
-  - type: worker
-    name: celery-worker
-    env: python
-    plan: free
-    branch: main
-    buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: |
-      celery -A src.celery_app worker \
-             -Q enrich,default \
-             --concurrency=${CELERY_CONCURRENCY:-2} \
-             --loglevel=info
-    envVars:
-      - fromGroup: sentimeter
-
-  # ── (Optional) Celery beat scheduler ───────────────────
-  - type: worker
-    name: celery-beat
-    env: python
-    plan: free
-    branch: main
-    buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: celery -A src.celery_app beat --loglevel=info
+    pythonVersion: 3.11
     envVars:
       - fromGroup: sentimeter
