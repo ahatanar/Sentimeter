@@ -5,6 +5,6 @@ services:
     name: sentimeter-web
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -w 1 -b 0.0.0.0:5000 'src.app:create_app()'
+    startCommand: ./start.sh
     envVars:
       - fromGroup: sentimeter
