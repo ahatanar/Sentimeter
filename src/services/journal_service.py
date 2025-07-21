@@ -6,7 +6,6 @@ from src.services.weather_service import WeatherService
 from collections import Counter
 from datetime import timedelta
 import logging
-from src.tasks.enrich import enrich_journal_entry
 
 class JournalService:
     @staticmethod
@@ -33,7 +32,8 @@ class JournalService:
 
             saved_entry = journal_entry.save()
             
-            # Trigger async enrichment
+            # Import here to avoid circular import
+            from src.tasks.enrich import enrich_journal_entry
             enrich_journal_entry.delay(str(saved_entry.entry_id))
 
             return saved_entry.to_dict()

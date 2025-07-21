@@ -5,9 +5,40 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ============================================================================
+# =========================================================================
+# MODULE-LEVEL ML MODEL SINGLETONS (Loaded once per worker process)
+# =========================================================================
+
+# HuggingFace sentiment pipeline (CPU only)
+_hf_sentiment_pipeline = None
+# KeyBERT model
+_hf_keybert_model = None
+
+def get_hf_sentiment_pipeline():
+    global _hf_sentiment_pipeline
+    if _hf_sentiment_pipeline is None:
+        from transformers import pipeline
+        _hf_sentiment_pipeline = pipeline(
+            "sentiment-analysis",
+            model="distilbert-base-uncased-finetuned-sst-2-english",
+            device=-1  # Force CPU
+        )
+    return _hf_sentiment_pipeline
+
+def get_hf_keybert_model():
+    global _hf_keybert_model
+    if _hf_keybert_model is None:
+        from keybert import KeyBERT
+        _hf_keybert_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
+    return _hf_keybert_model
+
+# Eagerly load models at worker startup
+get_hf_sentiment_pipeline()
+get_hf_keybert_model()
+
+# =========================================================================
 # ABSTRACT INTERFACES (Strategy Pattern)
-# ============================================================================
+# =========================================================================
 
 class SentimentAnalyzer(ABC):
     """Strategy interface for sentiment analysis"""
@@ -30,16 +61,16 @@ class WeatherDescriber(ABC):
     def generate_description(self, weather_data: Dict[str, Any]) -> str:
         pass
 
-# ============================================================================
+# =========================================================================
 # CONCRETE IMPLEMENTATIONS
-# ============================================================================
+# =========================================================================
 
 class HuggingFaceSentimentAnalyzer(SentimentAnalyzer):
     """Hugging Face implementation"""
     
     def __init__(self):
-        from transformers import pipeline
-        self.pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+        # Use the module-level singleton
+        self.pipeline = get_hf_sentiment_pipeline()
     
     def analyze_sentiment(self, text: str) -> Tuple[str, float]:
         results = self.pipeline(text, truncation=True)
@@ -92,8 +123,8 @@ class HuggingFaceKeywordExtractor(KeywordExtractor):
     """Hugging Face implementation"""
     
     def __init__(self):
-        from keybert import KeyBERT
-        self.kw_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
+        # Use the module-level singleton
+        self.kw_model = get_hf_keybert_model()
     
     def extract_keywords(self, text: str, top_n: int = 5) -> List[str]:
         keywords = self.kw_model.extract_keywords(
@@ -164,9 +195,9 @@ class TemplateWeatherDescriber(WeatherDescriber):
             f"{weather_data.get('wind_speed', 'N/A')} m/s wind."
         )
 
-# ============================================================================
+# =========================================================================
 # MAIN SERVICE (Facade Pattern)
-# ============================================================================
+# =========================================================================
 
 class TextAnalysisService:
     """
