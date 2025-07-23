@@ -19,12 +19,23 @@ def get_hf_sentiment_pipeline():
     global _hf_sentiment_pipeline
     if _hf_sentiment_pipeline is None:
         import gc
+        import platform
         from transformers import pipeline
+        
+        # Apply macOS-specific fixes only when needed
+        if platform.system() == "Darwin":  # macOS
+            os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            import torch
+            torch.set_num_threads(1)  # Single thread to avoid fork issues
+            device = "cpu"  # Force CPU on macOS
+        else:
+            device = -1  # Auto-detect best device on Linux
+        
         _hf_sentiment_pipeline = pipeline(
             "sentiment-analysis",
             model="distilbert-base-uncased-finetuned-sst-2-english",
-            device=-1,  # Force CPU
-            model_kwargs={'torch_dtype': 'float32'}  
+            device=device
         )
         gc.collect()  
     return _hf_sentiment_pipeline
@@ -33,8 +44,16 @@ def get_hf_keybert_model():
     global _hf_keybert_model
     if _hf_keybert_model is None:
         import gc
+        import platform
         from keybert import KeyBERT
-        _hf_keybert_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
+        
+        if platform.system() == "Darwin":  
+            os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            import torch
+            torch.set_num_threads(1)  
+        
+        _hf_keybert_model = KeyBERT(model='sentence-transformers/all-MiniLM-L6-v2')
         gc.collect() 
     return _hf_keybert_model
 

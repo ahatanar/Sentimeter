@@ -53,6 +53,11 @@ def enrich_journal_entry(self, entry_id):
 
             db.session.commit()
             
+    except Exception as e:
+        print(f"Error enriching entry {entry_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     finally:
         # Clean up memory after each task
         from src.services.text_service import cleanup_models
