@@ -124,84 +124,110 @@ class JournalService:
             }
             return heatmap_data
         except Exception as e:
-            # All print statements removed from this file
             return {}
     
     @staticmethod
     def get_dashboard_sentiments(user_id):
-        return {
-            "last_week": JournalService.get_last_week_sentiments(user_id),
-            "last_month": JournalService.get_last_month_sentiments(user_id),
-            "last_year": JournalService.get_last_year_sentiments(user_id)
-        }
+        try:
+            return {
+                "last_week": JournalService.get_last_week_sentiments(user_id),
+                "last_month": JournalService.get_last_month_sentiments(user_id),
+                "last_year": JournalService.get_last_year_sentiments(user_id)
+            }
+        except Exception as e:
+            print(f"Error getting dashboard sentiments for user {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "last_week": [],
+                "last_month": [],
+                "last_year": []
+            }
 
     @staticmethod
     def get_last_week_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=6)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-        from collections import defaultdict
-        grouped = defaultdict(list)
-        for e in raw:
-            grouped[e["timestamp"].date().isoformat()].append(e["sentiment_score"])
-        return [
-            {
-                "day": (start + timedelta(days=i)).strftime('%A'),
-                "average_sentiment": sum(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
-                                     max(len(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
-            }
-            for i in range(7)
-        ]
+        try:
+            today = datetime.now(timezone.utc)
+            start = today - timedelta(days=6)
+            raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+            from collections import defaultdict
+            grouped = defaultdict(list)
+            for e in raw:
+                if e["sentiment_score"] is not None and e["timestamp"] is not None:
+                    grouped[e["timestamp"].date().isoformat()].append(e["sentiment_score"])
+            return [
+                {
+                    "day": (start + timedelta(days=i)).strftime('%A'),
+                    "average_sentiment": sum(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])) /
+                                         max(len(grouped.get((start + timedelta(days=i)).strftime('%Y-%m-%d'), [])), 1)
+                }
+                for i in range(7)
+            ]
+        except Exception as e:
+            print(f"Error getting last week sentiments: {e}")
+            return []
 
     @staticmethod
     def get_last_month_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=29)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-        from collections import defaultdict
-        grouped = defaultdict(list)
-        for e in raw:
-            days_ago = (today - e["timestamp"]).days
-            if days_ago <= 6:
-                label = "This week"
-            elif days_ago <= 13:
-                label = "Last week"
-            elif days_ago <= 20:
-                label = "2 weeks ago"
-            elif days_ago <= 27:
-                label = "3 weeks ago"
-            else:
-                label = "4 weeks ago"
-            grouped[label].append(e["sentiment_score"])
-        labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
-        return [
-            {
-                "week_label": label,
-                "average_sentiment": sum(grouped[label]) / len(grouped[label]) if grouped[label] else 0
-            }
-            for label in labels
-        ]
+        try:
+            today = datetime.now(timezone.utc)
+            start = today - timedelta(days=29)
+            raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+            from collections import defaultdict
+            grouped = defaultdict(list)
+            for e in raw:
+                # Skip entries without valid sentiment scores
+                if e["sentiment_score"] is not None and e["timestamp"] is not None:
+                    days_ago = (today - e["timestamp"]).days
+                    if days_ago <= 6:
+                        label = "This week"
+                    elif days_ago <= 13:
+                        label = "Last week"
+                    elif days_ago <= 20:
+                        label = "2 weeks ago"
+                    elif days_ago <= 27:
+                        label = "3 weeks ago"
+                    else:
+                        label = "4 weeks ago"
+                    grouped[label].append(e["sentiment_score"])
+            labels = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "This week"]
+            return [
+                {
+                    "week_label": label,
+                    "average_sentiment": sum(grouped[label]) / len(grouped[label]) if grouped[label] else 0
+                }
+                for label in labels
+            ]
+        except Exception as e:
+            print(f"Error getting last month sentiments: {e}")
+            return []
 
     @staticmethod
     def get_last_year_sentiments(user_id):
-        today = datetime.now(timezone.utc)
-        start = today - timedelta(days=364)
-        raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
-        from collections import defaultdict
-        from dateutil.relativedelta import relativedelta
-        grouped = defaultdict(list)
-        for e in raw:
-            key = e["timestamp"].strftime("%Y-%m")  # e.g., '2025-06'
-            grouped[key].append(e["sentiment_score"])
-        results = []
-        for i in range(12):
-            key = (start + relativedelta(months=i)).strftime('%Y-%m')
-            avg = sum(grouped.get(key, [])) / len(grouped[key]) if grouped.get(key) else 0
-            results.append({
-                "month": datetime.strptime(key, "%Y-%m").strftime("Month of %B"),
-                "average_sentiment": avg
-            })
-        return results
+        try:
+            today = datetime.now(timezone.utc)
+            start = today - timedelta(days=364)
+            raw = JournalEntryModel.get_sentiments_by_date(user_id, start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+            from collections import defaultdict
+            from dateutil.relativedelta import relativedelta
+            grouped = defaultdict(list)
+            for e in raw:
+                # Skip entries without valid sentiment scores
+                if e["sentiment_score"] is not None and e["timestamp"] is not None:
+                    key = e["timestamp"].strftime("%Y-%m")  # e.g., '2025-06'
+                    grouped[key].append(e["sentiment_score"])
+            results = []
+            for i in range(12):
+                key = (start + relativedelta(months=i)).strftime('%Y-%m')
+                avg = sum(grouped.get(key, [])) / len(grouped[key]) if grouped.get(key) else 0
+                results.append({
+                    "month": datetime.strptime(key, "%Y-%m").strftime("Month of %B"),
+                    "average_sentiment": avg
+                })
+            return results
+        except Exception as e:
+            print(f"Error getting last year sentiments: {e}")
+            return []
 
     @staticmethod
     def get_entries_by_keyword(user_id, keyword):
