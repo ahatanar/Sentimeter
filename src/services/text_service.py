@@ -6,36 +6,52 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # =========================================================================
-# MODULE-LEVEL ML MODEL SINGLETONS (Loaded once per worker process)
+# MODULE-LEVEL ML MODEL SINGLETONS (Lazy loaded to reduce memory)
 # =========================================================================
 
 # HuggingFace sentiment pipeline (CPU only)
 _hf_sentiment_pipeline = None
 # KeyBERT model
 _hf_keybert_model = None
+_openai_client = None
 
 def get_hf_sentiment_pipeline():
     global _hf_sentiment_pipeline
     if _hf_sentiment_pipeline is None:
+        import gc
         from transformers import pipeline
         _hf_sentiment_pipeline = pipeline(
             "sentiment-analysis",
             model="distilbert-base-uncased-finetuned-sst-2-english",
-            device=-1  # Force CPU
+            device=-1,  # Force CPU
+            model_kwargs={'torch_dtype': 'float32'}  
         )
+        gc.collect()  
     return _hf_sentiment_pipeline
 
 def get_hf_keybert_model():
     global _hf_keybert_model
     if _hf_keybert_model is None:
+        import gc
         from keybert import KeyBERT
         _hf_keybert_model = KeyBERT('sentence-transformers/all-MiniLM-L6-v2')
+        gc.collect() 
     return _hf_keybert_model
 
-# Eagerly load models at worker startup ONLY if IS_CELERY_WORKER=1
-if os.getenv("IS_CELERY_WORKER") == "1":
-    get_hf_sentiment_pipeline()
-    get_hf_keybert_model()
+def get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _openai_client
+
+def cleanup_models():
+    global _hf_sentiment_pipeline, _hf_keybert_model
+    import gc
+    _hf_sentiment_pipeline = None
+    _hf_keybert_model = None
+    gc.collect()
+
 
 # =========================================================================
 # ABSTRACT INTERFACES (Strategy Pattern)
@@ -90,8 +106,7 @@ class OpenAISentimentAnalyzer(SentimentAnalyzer):
     """OpenAI implementation"""
     
     def __init__(self):
-        from openai import OpenAI
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = get_openai_client()
     
     def analyze_sentiment(self, text: str) -> Tuple[str, float]:
         try:
@@ -136,8 +151,7 @@ class OpenAIKeywordExtractor(KeywordExtractor):
     """OpenAI implementation"""
     
     def __init__(self):
-        from openai import OpenAI
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = get_openai_client()
     
     def extract_keywords(self, text: str, top_n: int = 5) -> List[str]:
         try:
@@ -158,9 +172,10 @@ class OpenAIKeywordExtractor(KeywordExtractor):
             return []
 
 class OpenAIWeatherDescriber(WeatherDescriber):
+    def __init__(self):
+        self.client = get_openai_client()
+        
     def generate_description(self, weather_data: Dict[str, Any]) -> str:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         if weather_data.get('description', 'N/A') == 'unknown':
             return "Description not available."
         prompt = (
@@ -171,7 +186,7 @@ class OpenAIWeatherDescriber(WeatherDescriber):
             f"Write a short weather description (max 150 chars)."
         )
         try:
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model="gpt-4o-2024-08-06",
                 messages=[
                     {"role": "system", "content": "You are a weather describing robot"},
@@ -264,8 +279,7 @@ class TextAnalysisService:
         self.weather_describer = self._create_weather_describer(provider)
 
     def generate_embedding(self, text: str) -> Optional[List[float]]:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = get_openai_client()
         try:
             response = client.embeddings.create(
                 input=text,

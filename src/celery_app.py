@@ -12,9 +12,13 @@ celery_app.conf.update(
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    
+    worker_max_tasks_per_child=50, 
+    worker_max_memory_per_child=450000,  
+    task_acks_late=True,  
+    worker_prefetch_multiplier=1,  
 )
 
-# Import all task modules so Celery registers them
 import src.tasks.enrich
 import src.services.smart_scheduler
 import src.services.survey_scheduler 
