@@ -85,11 +85,18 @@ def callback():
         token = create_access_token(identity=google_id)
         response = make_response("", 303)
         response.headers["Location"] = FRONTEND_REDIRECT_URI
-        response.set_cookie("access_token_cookie", token, samesite="Lax", secure=False, httponly=False, domain="localhost")
+        
+        if os.getenv("ENVIRONMENT") == "production":
+            response.set_cookie("access_token_cookie", token, samesite="Lax", secure=True, httponly=False)
+        else:
+            response.set_cookie("access_token_cookie", token, samesite="Lax", secure=False, httponly=False, domain="localhost")
         return response
 
     except Exception as e:
-        return jsonify({"error": "Failed to process callback"}), 500
+        print(f"Callback error: {str(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to process callback: {str(e)}"}), 500
 
 
 
