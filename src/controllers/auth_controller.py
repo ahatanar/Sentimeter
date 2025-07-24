@@ -91,24 +91,21 @@ def callback():
         print(f"Created JWT token for user: {google_id}", flush=True)
         print(f"Token length: {len(token)}", flush=True)
         
-        response = make_response("", 303)
-        response.headers["Location"] = FRONTEND_REDIRECT_URI
-        print(f"Redirecting to: {FRONTEND_REDIRECT_URI}", flush=True)
+        # Return HTML with cookie setting and redirect
+        html_response = f"""
+        <html>
+        <body>
+        <script>
+        document.cookie = "access_token_cookie={token}; path=/; max-age=86400; samesite=None; secure";
+        window.location.href = "{FRONTEND_REDIRECT_URI}";
+        </script>
+        <p>Redirecting...</p>
+        </body>
+        </html>
+        """
         
-        if os.getenv("ENVIRONMENT") == "production":
-            print("Setting PRODUCTION cookie", flush=True)
-            response.set_cookie(
-                "access_token_cookie", 
-                token, 
-                samesite="None", 
-                secure=True, 
-                httponly=False,
-                path="/",
-                max_age=86400  
-            )
-        else:
-            print("Setting DEVELOPMENT cookie", flush=True)
-            response.set_cookie("access_token_cookie", token, samesite="Lax", secure=False, httponly=False, domain="localhost")
+        response = make_response(html_response, 200)
+        response.headers['Content-Type'] = 'text/html'
         
         print("=== AUTH CALLBACK SUCCESS ===", flush=True)
         return response
