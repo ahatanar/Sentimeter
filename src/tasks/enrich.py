@@ -18,9 +18,8 @@ def enrich_journal_entry(self, entry_id):
         with app.app_context():
             entry = db.session.query(JournalEntryModel).get(entry_id)
             if not entry or not entry.processing:
-                return  # Already enriched or doesn't exist
+                return  
 
-            # 1. Location
             coords = None
             if entry.location and isinstance(entry.location, dict) and entry.location.get('latitude') and entry.location.get('longitude'):
                 coords = (entry.location['latitude'], entry.location['longitude'])

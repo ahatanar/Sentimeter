@@ -17,8 +17,7 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 FRONTEND_REDIRECT_URI = os.getenv("FRONTEND_REDIRECT_URI")
 
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
-
-REDIRECT_URI = "http://localhost:5000/api/auth/callback"
+REDIRECT_URI = os.getenv("REDIRECT_URI")
 
 @auth_bp.route("/login", methods=["GET"])
 def login():

@@ -13,10 +13,8 @@ class JournalService:
         try:
             import logging
             logger = logging.getLogger("journal_service")
-            # All print statements removed from this file
             timestamp = parse(optional_date) if optional_date else datetime.now()
             
-            # Save minimal entry with processing=True
             journal_entry = JournalEntryModel(
                 user_id=user_id,
                 entry=entry,
@@ -24,7 +22,6 @@ class JournalService:
                 processing=True,
                 ip_address=ip_address,
                 location=location_data if location_data else None,
-                # All enrichment fields will be None initially
                 sentiment=None,
                 sentiment_score=None,
                 emotions=None,
@@ -34,11 +31,8 @@ class JournalService:
             )
 
             saved_entry = journal_entry.save()
-            # All print statements removed from this file
             
-            # Import here to avoid circular import
             from src.tasks.enrich import enrich_journal_entry
-            # All print statements removed from this file
             enrich_journal_entry.delay(str(saved_entry.entry_id))
 
             return saved_entry.to_dict()
