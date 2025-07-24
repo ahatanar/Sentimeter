@@ -106,6 +106,8 @@ def callback():
         
         response = make_response(html_response, 200)
         response.headers['Content-Type'] = 'text/html'
+        response.headers['Access-Control-Allow-Origin'] = 'https://sentimeter-frontend.vercel.app'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
         
         print("=== AUTH CALLBACK SUCCESS ===", flush=True)
         return response
