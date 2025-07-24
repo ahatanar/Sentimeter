@@ -31,8 +31,13 @@ def create_app():
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]   
     app.config["JWT_COOKIE_NAME"] = "access_token_cookie"
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False  
-    app.config["JWT_COOKIE_SAMESITE"] = "Lax"  
-    app.config["JWT_COOKIE_SECURE"] = False  
+    # Configure JWT cookies for cross-origin in production
+    if os.getenv("ENVIRONMENT") == "production":
+        app.config["JWT_COOKIE_SAMESITE"] = "None"
+        app.config["JWT_COOKIE_SECURE"] = True
+    else:
+        app.config["JWT_COOKIE_SAMESITE"] = "Lax"
+        app.config["JWT_COOKIE_SECURE"] = False  
     CORS(app, 
          supports_credentials=True, 
          origins=["http://localhost:3000","https://sentimeter-frontend.vercel.app"],
@@ -42,6 +47,8 @@ def create_app():
     db.init_app(app)
 
     jwt = JWTManager(app)
+    
+  
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(journal_bp)
@@ -50,6 +57,7 @@ def create_app():
 
     @app.route("/health", methods=["GET"])
     def health():
+    
         return jsonify({"status": "ok"}), 200
 
     return app

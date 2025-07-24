@@ -39,7 +39,12 @@ def login():
 
 @auth_bp.route("/callback", methods=["GET"])
 def callback():
-
+    print("=== AUTH CALLBACK START ===", flush=True)
+    print(f"Request URL: {request.url}", flush=True)
+    print(f"Request args: {request.args}", flush=True)
+    print(f"FRONTEND_REDIRECT_URI: {FRONTEND_REDIRECT_URI}", flush=True)
+    print(f"ENVIRONMENT: {os.getenv('ENVIRONMENT')}", flush=True)
+    
     try:
         print("Callback URL hit:", request.url, flush=True)
 
@@ -83,13 +88,29 @@ def callback():
 
 
         token = create_access_token(identity=google_id)
+        print(f"Created JWT token for user: {google_id}", flush=True)
+        print(f"Token length: {len(token)}", flush=True)
+        
         response = make_response("", 303)
         response.headers["Location"] = FRONTEND_REDIRECT_URI
+        print(f"Redirecting to: {FRONTEND_REDIRECT_URI}", flush=True)
         
         if os.getenv("ENVIRONMENT") == "production":
-            response.set_cookie("access_token_cookie", token, samesite="Lax", secure=True, httponly=False)
+            print("Setting PRODUCTION cookie", flush=True)
+            response.set_cookie(
+                "access_token_cookie", 
+                token, 
+                samesite="None", 
+                secure=True, 
+                httponly=False,
+                path="/",
+                max_age=86400  
+            )
         else:
+            print("Setting DEVELOPMENT cookie", flush=True)
             response.set_cookie("access_token_cookie", token, samesite="Lax", secure=False, httponly=False, domain="localhost")
+        
+        print("=== AUTH CALLBACK SUCCESS ===", flush=True)
         return response
 
     except Exception as e:
@@ -113,20 +134,28 @@ def user_info():
         - 200 OK: A JSON object containing the user's email and name.
         - 500 Error: A JSON object with an error message if fetching user info fails.
     """
+    print("=== USER INFO REQUEST ===", flush=True)
+    print(f"Request cookies: {request.cookies}", flush=True)
+    
     try:
-
         identity = get_jwt_identity()
+        print(f"JWT identity: {identity}", flush=True)
         user = User.find_by_google_id(identity)
 
         if not user:
+            print(f"User not found for identity: {identity}", flush=True)
             return jsonify({"error": "User not found"}), 404
 
+        print(f"User found: {user.email}", flush=True)
         return jsonify({
             "email": user.email,
             "name": user.name,
         }), 200
     except Exception as e:
-        return jsonify({"error": "Failed to fetch user info"}), 500
+        print(f"USER INFO ERROR: {str(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to fetch user info: {str(e)}"}), 500
     
 @auth_bp.route("/authorize-calendar", methods=["GET"])
 def authorize_calendar():
