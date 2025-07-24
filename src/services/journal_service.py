@@ -13,7 +13,14 @@ class JournalService:
         try:
             import logging
             logger = logging.getLogger("journal_service")
-            timestamp = parse(optional_date) if optional_date else datetime.now()
+            if optional_date:
+                timestamp = parse(optional_date)
+                if timestamp.tzinfo is not None:
+                    timestamp = timestamp.astimezone(timezone.utc)
+                else:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            else:
+                timestamp = datetime.now(timezone.utc)
             
             journal_entry = JournalEntryModel(
                 user_id=user_id,
@@ -32,8 +39,12 @@ class JournalService:
 
             saved_entry = journal_entry.save()
             
-            from src.tasks.enrich import enrich_journal_entry
-            enrich_journal_entry.delay(str(saved_entry.entry_id))
+            try:
+                from src.tasks.enrich import enrich_journal_entry
+                enrich_journal_entry.delay(str(saved_entry.entry_id))
+                print(f"Enrichment task queued for entry {saved_entry.entry_id}", flush=True)
+            except Exception as e:
+                print(f"Failed to queue enrichment task: {e}", flush=True)
 
             return saved_entry.to_dict()
         except Exception as e:
