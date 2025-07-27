@@ -57,8 +57,16 @@ def create_app():
 
     @app.route("/health", methods=["GET"])
     def health():
-    
         return jsonify({"status": "ok"}), 200
+    
+    @app.route("/debug", methods=["GET"])
+    def debug():
+        return jsonify({
+            "environment": os.getenv("ENVIRONMENT"),
+            "jwt_cookie_secure": app.config.get("JWT_COOKIE_SECURE"),
+            "jwt_cookie_samesite": app.config.get("JWT_COOKIE_SAMESITE"),
+            "frontend_redirect": os.getenv("FRONTEND_REDIRECT_URI")
+        }), 200
 
     return app
 
