@@ -23,6 +23,7 @@ def enrich_journal_entry(self, entry_id):
                 return  
 
             coords = None
+            print("Getting GEODATA")
             if entry.location and isinstance(entry.location, dict) and entry.location.get('latitude') and entry.location.get('longitude'):
                 coords = (entry.location['latitude'], entry.location['longitude'])
             if coords:
@@ -33,9 +34,12 @@ def enrich_journal_entry(self, entry_id):
                 location = {"city": "Unknown", "region": "Unknown", "country": "Unknown"}
 
             # 2. Weather
+            print("Getting Weather")
             weather = WeatherService.get_weather_by_location(location)
 
             # 3. Text analysis
+            print("Getting ML services")
+
             service = TextAnalysisService()
             sentiment, sentiment_score = service.analyze_sentiment(entry.entry)
             keywords = service.extract_keywords(entry.entry)
@@ -51,7 +55,7 @@ def enrich_journal_entry(self, entry_id):
             entry.processing = False
             entry.last_enriched_at = datetime.utcnow()
             entry.ip_address = None  # Clear IP after use
-
+            print("Succesfully enrichment now comitting to DB")
             db.session.commit()
             
     except Exception as e:
