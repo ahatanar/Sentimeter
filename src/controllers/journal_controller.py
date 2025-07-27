@@ -183,6 +183,8 @@ def get_dashboard_sentiments():
         return jsonify({"error": str(e)}), 500
 
 
+
+
 @journal_bp.route("/keywords", methods=["GET"])
 @jwt_required()
 def get_top_keywords():

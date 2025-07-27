@@ -38,24 +38,48 @@ Located in this `Sentimeter` Repo, this component includes:
    pip install -r requirements.txt
 3. Start the backend server:
    ```
-   python src/app.py
+   python -m src.app 
+   
 
 
-### 
-cd Centimter
-
-# Start the Celery worker (for async enrichment, email, survey reminders)
-python3 -m celery -A src.celery_app worker --loglevel=info --pool=solo
-
-# (Optional) Start the Celery beat scheduler (for periodic/scheduled tasks)
-python3 -m celery -A src.celery_app beat --loglevel=info
+### Celery Workers & Async Processing
 
 We use Celery workers for async tasks such as email sending, survey reminders, and data enrichment through AI. 
 - The **worker** processes background jobs (enrichment, email, etc.) so the user doesn't have to wait for slow operations.
 - The **beat scheduler** (optional) schedules periodic tasks, like sending reminders or weekly surveys.
 
 **You must have at least one worker running for async features to work.**
-- If you want scheduled reminders, also run the beat scheduler.
+
+#### Platform-Specific Worker Commands
+
+**macOS Development (with ML model fixes):**
+```bash
+# Start Celery worker with macOS-specific fixes for PyTorch/MPS issues
+PYTORCH_ENABLE_MPS_FALLBACK=1 TOKENIZERS_PARALLELISM=false IS_CELERY_WORKER=1 \
+celery -A src.celery_app worker --loglevel=info --pool=solo --concurrency=1
+
+IS_CELERY_WORKER=1 celery -A src.celery_app beat --loglevel=info
+```
+
+**Linux/Production (Render, Docker, etc.):**
+```bash
+IS_CELERY_WORKER=1 celery -A src.celery_app worker --loglevel=info --concurrency=2
+
+IS_CELERY_WORKER=1 celery -A src.celery_app beat --loglevel=info
+```
+
+**Quick Start Scripts:**
+```bash
+# macOS Development
+./start.sh
+
+# Linux/Production (Render, Docker, etc.)
+./start_production.sh
+```
+
+#### Why Different Commands?
+- **macOS**: Requires `--pool=solo` and environment variables to fix PyTorch MPS conflicts in forked processes
+- **Linux**: Can use standard multiprocessing pool with higher concurrency for better performance
 
 ## App Screenshots
 
