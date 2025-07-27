@@ -7,15 +7,17 @@ from src.models.journal_model import JournalEntryModel
 from src.services.text_service import TextAnalysisService
 from src.services.weather_service import WeatherService
 
-celery = Celery(__name__, broker=os.getenv("REDIS_URL"))
+from src.celery_app import celery_app as celery
 
-@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True)
+@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def enrich_journal_entry(self, entry_id):
     import gc
+    print(f"[TASK START] Processing entry {entry_id}", flush=True)
     app = create_app()
     
     try:
         with app.app_context():
+            print(f"[TASK] Database lookup for entry {entry_id}", flush=True)
             entry = db.session.query(JournalEntryModel).get(entry_id)
             if not entry or not entry.processing:
                 return  
