@@ -13,8 +13,8 @@ celery_app.conf.update(
     timezone='UTC',
     enable_utc=True,
     
-    worker_max_tasks_per_child=10,  
-    worker_max_memory_per_child=300000, 
+    worker_max_tasks_per_child=5,  
+    worker_max_memory_per_child=450000, 
     task_acks_late=True,  
     worker_prefetch_multiplier=1,  
 )

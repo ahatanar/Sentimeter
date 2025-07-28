@@ -250,9 +250,22 @@ class JournalService:
 
     @staticmethod
     def semantic_search_entries(user_id, query):
-        service = TextAnalysisService()
-        query_vector = service.generate_embedding(query)
-        return JournalEntryModel.get_entries_by_semantic_search(user_id, query_vector)
+        """
+        Perform semantic search on journal entries using embedding similarity.
+        Uses standalone embedding function to avoid HF model loading issues.
+        """
+        try:
+            from src.services.text_service import generate_embedding_standalone
+            
+            query_vector = generate_embedding_standalone(query)
+            
+            if query_vector is None:
+                raise Exception("Failed to generate embedding for search query")
+                
+            return JournalEntryModel.get_entries_by_semantic_search(user_id, query_vector)
+        except Exception as e:
+            print(f"Semantic search service error: {e}", flush=True)
+            return []
 
     def get_top_keywords(user_id, top_n=10):
         try:

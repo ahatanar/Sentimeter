@@ -250,9 +250,12 @@ def get_entries_by_month():
         return jsonify({"error": str(e)}), 500
 
 
-@journal_bp.route("/search/semantic", methods=["GET"])
+@journal_bp.route("/search/semantic", methods=["GET", "OPTIONS"])
 @jwt_required()
 def get_entries_by_semantic_search():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+        
     user_id = extract_user_id()
     query = request.args.get("query")
     
@@ -263,7 +266,8 @@ def get_entries_by_semantic_search():
         entries = JournalService.semantic_search_entries(user_id, query)
         return jsonify({"entries": entries}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Semantic search error: {e}", flush=True)
+        return jsonify({"error": f"Search failed: {str(e)}"}), 500
 
 
 @journal_bp.route("/streak", methods=["GET"])

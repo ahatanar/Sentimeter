@@ -9,7 +9,7 @@ from src.services.weather_service import WeatherService
 
 from src.celery_app import celery_app as celery
 
-@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+@celery.task(bind=True, acks_late=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3, soft_time_limit=300, time_limit=360)
 def enrich_journal_entry(self, entry_id):
     import gc
     print(f"[TASK START] Processing entry {entry_id}", flush=True)
@@ -37,9 +37,14 @@ def enrich_journal_entry(self, entry_id):
             print("Getting Weather")
             weather = WeatherService.get_weather_by_location(location)
 
-            # 3. Text analysis
+            # 3. Text analysis (memory optimized)
             print("Getting ML services", flush=True)
             
+            # Use OpenAI for embedding to save memory
+            from src.services.text_service import get_openai_client
+            import gc
+            
+            # Only load HF models when needed
             service = TextAnalysisService()
             print("TextAnalysisService created", flush=True)
             
@@ -51,8 +56,22 @@ def enrich_journal_entry(self, entry_id):
             keywords = service.extract_keywords(entry.entry)
             print(f"Keywords complete: {len(keywords)} found", flush=True)
             
+            # Clean up HF models before OpenAI call
+            from src.services.text_service import cleanup_models
+            cleanup_models()
+            gc.collect()
+            
             print("Starting embedding generation...", flush=True)
-            embedding = service.generate_embedding(entry.entry)
+            client = get_openai_client()
+            try:
+                response = client.embeddings.create(
+                    input=entry.entry,
+                    model="text-embedding-3-small"
+                )
+                embedding = response.data[0].embedding
+            except Exception as e:
+                print(f"Embedding failed: {e}")
+                embedding = None
             print("Embedding complete", flush=True)
 
             # 4. Update entry

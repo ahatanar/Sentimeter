@@ -33,7 +33,7 @@ def get_hf_sentiment_pipeline():
         
         _hf_sentiment_pipeline = pipeline(
             "sentiment-analysis",
-            model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+            model="j-hartmann/emotion-english-distilroberta-base",
             device=device
         )
         gc.collect()  
@@ -69,6 +69,26 @@ def cleanup_models():
     _hf_sentiment_pipeline = None
     _hf_keybert_model = None
     gc.collect()
+
+# =========================================================================
+# STANDALONE FUNCTIONS (No heavy model loading)
+# =========================================================================
+
+def generate_embedding_standalone(text: str) -> Optional[List[float]]:
+    """
+    Standalone embedding generation that doesn't trigger HF model loading.
+    Safe to use in web requests without memory issues.
+    """
+    try:
+        client = get_openai_client()
+        response = client.embeddings.create(
+            input=text,
+            model="text-embedding-3-small"
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        print(f"Embedding generation failed: {e}", flush=True)
+        return None
 
 
 # =========================================================================
@@ -109,21 +129,18 @@ class HuggingFaceSentimentAnalyzer(SentimentAnalyzer):
     
     def analyze_sentiment(self, text: str) -> Tuple[str, float]:
         results = self.pipeline(text, truncation=True)
-        sentiment = results[0]["label"].lower()
+        emotion = results[0]["label"].lower()
         confidence = results[0]["score"]
         
-        # RoBERTa uses LABEL_0/LABEL_1/LABEL_2 (negative/neutral/positive)
-        if sentiment == "label_0":  # negative
+        # DistilRoBERTa emotion model maps to sentiment
+        if emotion in ["joy", "optimism", "love"]:
+            sentiment = "positive"
+        elif emotion in ["anger", "sadness", "pessimism", "disgust", "fear"]:
             sentiment = "negative"
             confidence = -1 * confidence
-        elif sentiment == "label_1":  # neutral
+        else:  # surprise, neutral, etc.
             sentiment = "neutral"
             confidence = 0.0
-        elif sentiment == "label_2":  # positive
-            sentiment = "positive"
-        
-        if -0.5 <= confidence <= 0.5:
-            sentiment = "neutral"
         
         return sentiment, confidence
 
@@ -304,12 +321,4 @@ class TextAnalysisService:
         self.weather_describer = self._create_weather_describer(provider)
 
     def generate_embedding(self, text: str) -> Optional[List[float]]:
-        client = get_openai_client()
-        try:
-            response = client.embeddings.create(
-                input=text,
-                model="text-embedding-3-small"
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            return None
+        return generate_embedding_standalone(text)
