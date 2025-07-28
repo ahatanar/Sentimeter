@@ -22,19 +22,18 @@ def get_hf_sentiment_pipeline():
         import platform
         from transformers import pipeline
         
-        # Apply macOS-specific fixes only when needed
         if platform.system() == "Darwin":  # macOS
             os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             import torch
-            torch.set_num_threads(1)  # Single thread to avoid fork issues
-            device = "cpu"  # Force CPU on macOS
+            torch.set_num_threads(1)  
+            device = "cpu"  
         else:
-            device = -1  # Auto-detect best device on Linux
+            device = -1 
         
         _hf_sentiment_pipeline = pipeline(
             "sentiment-analysis",
-            model="distilbert-base-uncased-finetuned-sst-2-english",
+            model="cardiffnlp/twitter-roberta-base-sentiment-latest",
             device=device
         )
         gc.collect()  
@@ -53,7 +52,7 @@ def get_hf_keybert_model():
             import torch
             torch.set_num_threads(1)  
         
-        _hf_keybert_model = KeyBERT(model='sentence-transformers/all-MiniLM-L6-v2')
+        _hf_keybert_model = KeyBERT(model='paraphrase-MiniLM-L3-v2')
         gc.collect() 
     return _hf_keybert_model
 
@@ -113,8 +112,15 @@ class HuggingFaceSentimentAnalyzer(SentimentAnalyzer):
         sentiment = results[0]["label"].lower()
         confidence = results[0]["score"]
         
-        if sentiment == "negative":
+        # RoBERTa uses LABEL_0/LABEL_1/LABEL_2 (negative/neutral/positive)
+        if sentiment == "label_0":  # negative
+            sentiment = "negative"
             confidence = -1 * confidence
+        elif sentiment == "label_1":  # neutral
+            sentiment = "neutral"
+            confidence = 0.0
+        elif sentiment == "label_2":  # positive
+            sentiment = "positive"
         
         if -0.5 <= confidence <= 0.5:
             sentiment = "neutral"

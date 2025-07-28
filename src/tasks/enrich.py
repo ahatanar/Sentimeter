@@ -38,12 +38,22 @@ def enrich_journal_entry(self, entry_id):
             weather = WeatherService.get_weather_by_location(location)
 
             # 3. Text analysis
-            print("Getting ML services")
-
+            print("Getting ML services", flush=True)
+            
             service = TextAnalysisService()
+            print("TextAnalysisService created", flush=True)
+            
+            print("Starting sentiment analysis...", flush=True)
             sentiment, sentiment_score = service.analyze_sentiment(entry.entry)
+            print(f"Sentiment complete: {sentiment}", flush=True)
+            
+            print("Starting keyword extraction...", flush=True)
             keywords = service.extract_keywords(entry.entry)
+            print(f"Keywords complete: {len(keywords)} found", flush=True)
+            
+            print("Starting embedding generation...", flush=True)
             embedding = service.generate_embedding(entry.entry)
+            print("Embedding complete", flush=True)
 
             # 4. Update entry
             entry.location = location
