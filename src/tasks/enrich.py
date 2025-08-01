@@ -1,6 +1,6 @@
 import os
 from celery import Celery
-from datetime import datetime
+from datetime import datetime, timezone
 from src.app import create_app
 from src.database import db
 from src.models.journal_model import JournalEntryModel
@@ -82,7 +82,7 @@ def enrich_journal_entry(self, entry_id):
             entry.keywords = keywords
             entry.embedding = embedding
             entry.processing = False
-            entry.last_enriched_at = datetime.utcnow()
+            entry.last_enriched_at = datetime.now(timezone.utc)
             entry.ip_address = None  # Clear IP after use
             print("Succesfully enrichment now comitting to DB")
             db.session.commit()

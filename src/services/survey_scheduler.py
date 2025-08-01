@@ -4,7 +4,7 @@ This runs daily and sends reminders to users who haven't completed their survey 
 """
 
 from celery import Celery
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.services.notification_service import NotificationService
 from src.services.weekly_survey_service import WeeklySurveyService
 from src.models.user_model import User
@@ -26,7 +26,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 def send_weekly_survey_reminders():
     """Send weekly survey reminders to users who haven't completed this week's survey"""
     try:
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         weekday = today.strftime("%A").lower()  # e.g. 'sunday'
         week_start = WeeklySurveyService.calculate_week_start()
         
@@ -47,16 +47,16 @@ def send_weekly_survey_reminders():
         return {
             "success": True,
             "users_scheduled": len(results),
-            "check_time": datetime.utcnow().strftime("%H:%M"),
+            "check_time": datetime.now(timezone.utc).strftime("%H:%M"),
             "weekday": weekday,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         print(f"❌ [SURVEY_SCHEDULER] Error: {str(e)}")
         return {
             "success": False,
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -90,7 +90,7 @@ def send_survey_reminder_task(user_id: str):
                 "success": True,
                 "user_id": user_id,
                 "user_name": user.name,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         else:
             print(f"❌ [SURVEY_REMINDER] Failed to send email to: {user.name}")
@@ -98,7 +98,7 @@ def send_survey_reminder_task(user_id: str):
                 "success": False,
                 "error": "Email sending failed",
                 "user_id": user_id,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
     except Exception as e:
@@ -107,7 +107,7 @@ def send_survey_reminder_task(user_id: str):
             "success": False,
             "error": str(e),
             "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 

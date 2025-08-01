@@ -104,14 +104,13 @@ class NotificationService:
     
     def get_users_for_journal_reminder(self, current_time: time, current_weekday: str = None) -> List[str]:
         """Get list of user IDs who should receive journal reminders at the given time"""
-        # Convert current time to UTC for consistent comparison
-        utc_now = datetime.now(timezone.utc)
-        current_utc_time = utc_now.time()
+        # Use the passed current_time parameter which is already in UTC from the scheduler
+        # This avoids timezone comparison issues between naive time objects and timezone-aware times
         
         # Base query for enabled notifications at current time
         query = NotificationSettings.query.filter(
             NotificationSettings.journal_enabled == True,
-            NotificationSettings.journal_time == current_utc_time
+            NotificationSettings.journal_time == current_time
         )
         
         # Add weekday filter if provided

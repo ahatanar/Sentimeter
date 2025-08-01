@@ -25,7 +25,7 @@ class JournalService:
             journal_entry = JournalEntryModel(
                 user_id=user_id,
                 entry=entry,
-                timestamp=timestamp.isoformat(),
+                timestamp=timestamp,
                 processing=True,
                 ip_address=ip_address,
                 location=location_data if location_data else None,

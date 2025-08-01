@@ -4,7 +4,7 @@ This is much more efficient than running every minute.
 """
 
 from celery import Celery
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from src.services.notification_service import NotificationService
 import os
 
@@ -32,8 +32,8 @@ CHECK_INTERVAL_MINUTES = 15
 def send_bulk_journal_reminders():
     """Smart task that runs every 15 minutes to check for reminders"""
     try:
-        current_time = datetime.now().time()
-        current_weekday = datetime.now().strftime("%A").lower()
+        current_time = datetime.now(timezone.utc).time()
+        current_weekday = datetime.now(timezone.utc).strftime("%A").lower()
         
         # Get users who need reminders now
         user_ids = notification_service.get_users_for_journal_reminder(current_time, current_weekday)
@@ -47,38 +47,13 @@ def send_bulk_journal_reminders():
             "success": True,
             "users_scheduled": len(user_ids),
             "check_time": current_time.strftime("%H:%M"),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    
-    try:
-        current_time = datetime.now().time()
-        current_weekday = datetime.now().strftime("%A").lower()
-        
-        # Get users who need reminders now
-        user_ids = notification_service.get_users_for_journal_reminder(current_time, current_weekday)
-        
-        results = []
-        for user_id in user_ids:
-            result = send_journal_reminder_task.delay(user_id)
-            results.append(result)
-        
-        return {
-            "success": True,
-            "users_scheduled": len(user_ids),
-            "reminder_hour": current_hour,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -90,14 +65,14 @@ def send_journal_reminder_task(user_id: str):
         return {
             "success": success,
             "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
             "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -116,7 +91,7 @@ def schedule_user_reminders(user_id: str, settings: dict):
     # Schedule the reminder
     task = send_journal_reminder_task.apply_async(
         args=[user_id],
-        eta=datetime.combine(datetime.now().date(), time(hour, minute))
+        eta=datetime.combine(datetime.now(timezone.utc).date(), time(hour, minute))
     )
     return task.id
 

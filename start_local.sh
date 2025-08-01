@@ -2,10 +2,8 @@
 
 # Local development script for macOS environments
 
-# Start Flask development server
 python3 -m src.app &
 
-# Start Celery worker optimized for macOS
 IS_CELERY_WORKER=1 celery -A src.celery_app worker \
     --loglevel=info \
     --concurrency=1 \
@@ -14,5 +12,4 @@ IS_CELERY_WORKER=1 celery -A src.celery_app worker \
     --pool=solo \
     -E &
 
-# Start beat scheduler  
 IS_CELERY_WORKER=1 celery -A src.celery_app beat --loglevel=info
