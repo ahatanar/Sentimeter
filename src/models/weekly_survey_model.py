@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, Boolean, Date, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from datetime import date
+from datetime import date, datetime, timezone
 from src.database import Base, db
 
 
@@ -24,7 +24,7 @@ class WeeklySurvey(Base):
 
     urgent_flag = Column(Boolean, default=False)
 
-    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def compute_urgent_flag(self):
         """Apply tiered safety logic."""

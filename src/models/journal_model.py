@@ -59,7 +59,7 @@ class JournalEntryModel(Base):
         return {
             "entry_id": str(self.entry_id),
             "user_id": self.user_id,
-            "timestamp": self.timestamp.isoformat(),
+            "timestamp": self.timestamp.isoformat(),  # Original: ISO format WITH timezone
             "entry": self.entry,
             "sentiment": self.sentiment,
             "sentiment_score": self.sentiment_score,

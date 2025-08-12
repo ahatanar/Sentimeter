@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Boolean, DateTime, Time, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import time, timezone
+from datetime import time, datetime, timezone
 from src.database import Base, db
 
 
@@ -16,8 +16,8 @@ class NotificationSettings(Base):
     survey_enabled = Column(Boolean, default=True, nullable=False)
     survey_day = Column(String, default="sunday", nullable=False)   # lowercase weekday
     survey_time = Column(Time, default=time(18, 0), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="notification_settings")
 
