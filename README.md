@@ -34,6 +34,10 @@ Located in this `Sentimeter` Repo, this component includes:
    cd Sentimeter
 2. Install the required Python dependencies:
    ```bash
+   # For Windows users
+   pip install -r requirements-windows.txt
+   
+   # For macOS/Linux users
    python setup.py install
    pip install -r requirements.txt
 3. Start the backend server:
@@ -50,7 +54,24 @@ We use Celery workers for async tasks such as email sending, survey reminders, a
 
 **You must have at least one worker running for async features to work.**
 
+#### Broker Configuration
+- **Production**: Uses Redis as the message broker
+- **Local Development**: Automatically falls back to memory broker if Redis is not available
+- **Redis Installation**: Optional for local development, but recommended for production-like testing
+
 #### Platform-Specific Worker Commands
+
+**Windows Development:**
+```cmd
+# Start Celery worker with Windows-specific configuration
+set IS_CELERY_WORKER=1
+set TOKENIZERS_PARALLELISM=false
+python -m celery -A src.celery_app worker --loglevel=info --pool=solo --concurrency=1
+
+# Start Celery beat scheduler (in a separate terminal)
+set IS_CELERY_WORKER=1
+python -m celery -A src.celery_app beat --loglevel=info
+```
 
 **macOS Development (with ML model fixes):**
 ```bash
@@ -70,14 +91,18 @@ IS_CELERY_WORKER=1 celery -A src.celery_app beat --loglevel=info
 
 **Quick Start Scripts:**
 ```bash
+# Windows Development
+start_windows.bat
+
 # macOS Development
-./start.sh
+./start_local.sh
 
 # Linux/Production (Render, Docker, etc.)
-./start_production.sh
+./start.sh
 ```
 
 #### Why Different Commands?
+- **Windows**: Requires `--pool=solo` and environment variables to avoid multiprocessing issues and PyTorch conflicts
 - **macOS**: Requires `--pool=solo` and environment variables to fix PyTorch MPS conflicts in forked processes
 - **Linux**: Can use standard multiprocessing pool with higher concurrency for better performance
 
